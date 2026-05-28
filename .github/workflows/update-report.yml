@@ -1,0 +1,44 @@
+name: Update remuneration report
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - data/detalle_remuneraciones.xlsx
+      - scripts/generate_remuneraciones_html.py
+      - .github/workflows/update-report.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install openpyxl
+
+      - name: Generate HTML
+        run: python scripts/generate_remuneraciones_html.py
+
+      - name: Commit generated report
+        run: |
+          if git diff --quiet index.html; then
+            echo "No report changes to commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add index.html
+            git commit -m "Actualiza reporte publicado"
+            git push
+          fi
