@@ -957,7 +957,7 @@ const downloadReports=[
   {id:'general',name:'General',file:'Revision_General',rule:'Todas las empresas y áreas',filter:r=>true},
   {id:'rrhh',name:'RRHH',file:'Revision_RRHH',rule:'Sin Pakarati y sin cargos Gerente General',filter:r=>!isPakaratiRow(r)&&!String(r.cargo||'').toLowerCase().includes('gerente general')},
   {id:'planta',name:'Planta',file:'Revision_PLANTA',rule:'Solo sede Planta Crux',filter:r=>String(r.sede||'').toLowerCase()==='planta crux'},
-  {id:'pakarati',name:'Pakarati',file:'Revision_PAKARATI',rule:'Solo empresa Claudia Pakarati',filter:r=>isPakaratiRow(r)},
+  {id:'pakarati',name:'Pakarati',file:'Revision_PAKARATI',rule:'Sedes UT Isla y Oficinas Tekarera',filter:r=>isPakaratiDownloadRow(r)},
   {id:'jcuevas',name:'J.Cuevas',file:'Revision_JCUEVAS',rule:'Sedes UT, excluyendo Alianza y Claudia Pakarati',filter:r=>String(r.sede||'').toUpperCase().startsWith('UT')&&!isAlianzaRow(r)&&!isPakaratiRow(r)},
   {id:'alianza',name:'Alianza',file:'Revision_ALIANZA',rule:'Solo empresa Alianza',filter:r=>isAlianzaRow(r)},
 ];
@@ -966,6 +966,7 @@ function isPakarati(s){const x=norm(s);return x.includes('pakarati')||x.includes
 function isAlianza(s){return norm(s).includes('alianza');}
 function companyText(r){return [r.empresa,r.raw?.[0],r.raw?.[1],r.raw?.[2]].map(x=>String(x||'')).join(' ');}
 function isPakaratiRow(r){return isPakarati(companyText(r));}
+function isPakaratiDownloadRow(r){const sede=norm(r.sede);return sede==='ut isla'||sede.includes('oficinas tekarera')||sede.includes('oficina pakarati')||sede.includes('oficinas pakarati');}
 function isAlianzaRow(r){return isAlianza(companyText(r));}
 function reportMonths(){return [DATA.months.at(-2)?.id,DATA.months.at(-1)?.id].filter(Boolean);}
 function downloadStats(report){
