@@ -1608,7 +1608,7 @@ document.addEventListener('click',e=>{if(!e.target.closest?.('#detailFilterMenu'
 const savedGroup=localStorage.getItem('remuGrupoSeleccionado');
 if(savedGroup&&DATA.group_options.some(g=>g.id===savedGroup)) resetForGroup(savedGroup);
 initSelectors(); renderAll();
-if(!savedGroup) openGroupGate();
+openGroupGate();
 </script>
 </body>
 </html>
