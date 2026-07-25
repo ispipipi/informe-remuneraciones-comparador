@@ -1255,7 +1255,6 @@ function companyText(r){return [r.empresa,r.raw?.[0],r.raw?.[1],r.raw?.[2]].map(
 function isPakaratiRow(r){return isPakarati(companyText(r));}
 function isPakaratiDownloadRow(r){const sede=norm(r.sede);return sede==='ut isla'||sede.includes('oficinas tekarera')||sede.includes('oficina pakarati')||sede.includes('oficinas pakarati');}
 function isAlianzaRow(r){return isAlianza(companyText(r));}
-function isEstGaRow(r){return norm(r.empresa).includes('servicios transitorios')||norm(companyText(r)).includes('servicios transitorios');}
 function isOverheadRow(r){return norm(r.sede)==='over head'||norm([r.empresa,r.sede,r.cargo,r.raw?.join(' ')].join(' ')).includes('overhead');}
 function reportMonths(){const months=groupMonths(state.grupo);return [months.at(-2)?.id,months.at(-1)?.id].filter(Boolean);}
 function reportBaseFilter(r){return inGroup(r);}
@@ -1362,13 +1361,8 @@ function downloadRevision(id){
   const baseRows=(DATA.details[base]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r)),compRows=(DATA.details[comp]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r));
   const wb=XLSX.utils.book_new();
   appendSheet(wb,'Resumen por empresa',summarySheetAoA('Grupo',baseRows,compRows,'empresa',base,comp),'summary');
-  const fullGroupKey=state.grupo==='Grupo Avanza'?'empresa_sede':'sede';
-  appendSheet(wb,'Resumen completo',summarySheetAoA(state.grupo==='Grupo Avanza'?'Empresa / Sede':'Grupo',baseRows,compRows,fullGroupKey,base,comp),'summary');
+  appendSheet(wb,'Resumen completo',summarySheetAoA('Grupo',baseRows,compRows,'sede',base,comp),'summary');
   appendSheet(wb,'Detalle individual',detailSheetAoA(baseRows,compRows,base,comp),'detail');
-  if(state.grupo==='Grupo Avanza'){
-    const estBase=baseRows.filter(isEstGaRow),estComp=compRows.filter(isEstGaRow);
-    if(estBase.length||estComp.length) appendSheet(wb,'Detalle EST G.A.',detailSheetAoA(estBase,estComp,base,comp),'detail');
-  }
   appendSheet(wb,sheetMonthName(base),monthRowsAoA(baseRows,base),'month');
   appendSheet(wb,sheetMonthName(comp),monthRowsAoA(compRows,comp),'month');
   XLSX.writeFile(wb,`${report.file}_${String(comp).replace('-','_')}.xlsx`);
