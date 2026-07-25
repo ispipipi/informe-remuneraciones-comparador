@@ -343,12 +343,18 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
         "Descuentos Legales - Impuesto Único": ("Impuesto Único", "descuento"),
     }
     concept_types = {label: typ for _, (label, typ) in concept_map.items()}
+    allowed_companies = {
+        "Grupo Avanza SPA",
+        "EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA",
+    }
     by_month: dict[str, list[dict]] = defaultdict(list)
     for raw in ws.iter_rows(min_row=7, values_only=True):
         if not raw or not raw[0]:
             continue
         period = period_id(raw[idx["Liquidación - Período"]])
         empresa = clean(raw[idx["Empresa - Nombre Empresa"]]) or "Grupo Avanza SPA"
+        if empresa not in allowed_companies:
+            continue
         sede = clean(raw[idx["Trabajo - Nombre Sub-área Asignada(o)"]]) or "Sin sede"
         concepts = {}
         for source_name, (label, _) in concept_map.items():
@@ -508,6 +514,7 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}thead th{background:v
 .clickable{cursor:pointer}.clickable:hover{background:var(--blue-lt)}.selected-line{background:var(--blue-lt)}
 .exp-btn{width:24px;height:24px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text2);font-family:var(--m);font-weight:700;cursor:pointer}.exp-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-lt)}.sede-row td{background:#fafbff}.sede-name{padding-left:34px;color:var(--text2)}
 .chip-x{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border2);background:var(--surface);border-radius:999px;padding:4px 9px;font-size:11.5px;font-weight:600;color:var(--text2)}.chip-x button{border:none;background:transparent;color:var(--red);font-weight:800;cursor:pointer;font-size:13px;line-height:1}.chip-wrap{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.group-gate{position:fixed;inset:0;z-index:50;background:rgba(244,245,249,.96);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:24px}.group-gate.open{display:flex}.group-box{width:min(760px,100%);background:var(--surface);border:1px solid var(--border);box-shadow:var(--sh2);border-radius:8px;padding:24px}.group-title{font-size:24px;font-weight:800;color:var(--text);margin-bottom:6px}.group-sub{font-size:13px;color:var(--text2);margin-bottom:18px}.group-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}.group-card{border:1px solid var(--border2);background:var(--surface);border-radius:8px;padding:18px;text-align:left;cursor:pointer}.group-card:hover{border-color:var(--blue);background:var(--blue-lt)}.group-card b{display:block;font-size:17px;color:var(--text);margin-bottom:6px}.group-card span{display:block;font-size:12px;color:var(--text2);line-height:1.45}@media(max-width:720px){.group-cards{grid-template-columns:1fr}.group-box{padding:18px}}
 canvas{max-width:100%}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:var(--bg)}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
 </style>
@@ -520,8 +527,15 @@ canvas{max-width:100%}
   </div>
   <span class="chip chip-b" id="chipBase"></span><span class="chip-vs">vs</span><span class="chip chip-g" id="chipComp"></span>
   <span style="font-size:11.5px;color:var(--text3)" id="sourceBadge"></span>
-  <div class="h-actions"><button class="btn" onclick="window.print()">Imprimir</button></div>
+  <div class="h-actions"><button class="btn" onclick="openGroupGate()">Cambiar grupo</button><button class="btn" onclick="window.print()">Imprimir</button></div>
 </header>
+<div class="group-gate" id="groupGate">
+  <div class="group-box">
+    <div class="group-title">Selecciona un grupo</div>
+    <div class="group-sub">El dashboard, KPIs, diferencias, detalle y descargas se cargarán según el grupo elegido.</div>
+    <div class="group-cards" id="groupGateCards"></div>
+  </div>
+</div>
 <nav class="nav" id="navTabs">
   <div class="tab active" data-sec="dashboard">Dashboard</div>
   <div class="tab" data-sec="kpis">KPIs</div>
@@ -733,6 +747,31 @@ function metricValueForKpi(month,key=state.metric){
   return getFilteredKpis(month)[key]||0;
 }
 function setOptions(sel, values, current){sel.innerHTML=values.map(v=>`<option value="${v.id}">${v.label}</option>`).join(''); sel.value=current}
+function resetForGroup(grupo){
+  state.grupo=grupo;
+  const ms=groupMonths(state.grupo);
+  state.base=ms.at(-2)?.id||ms[0]?.id||'';
+  state.comp=ms.at(-1)?.id||state.base;
+  state.empresa='';state.sede='';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.detailFilters={};
+}
+function groupStats(gid){
+  const months=groupMonths(gid),last=months.at(-1)?.id;
+  const rows=(DATA.details[last]||[]).filter(r=>r.grupo===gid);
+  return {months:months.length,companies:new Set(rows.map(r=>r.empresa)).size,records:rows.length,last:last?label(last):'Sin datos'};
+}
+function openGroupGate(){
+  groupGateCards.innerHTML=DATA.group_options.map(g=>{
+    const s=groupStats(g.id);
+    return `<button class="group-card" onclick="chooseGroup('${esc(g.id)}')"><b>${txt(g.label)}</b><span>${N(s.months)} meses · ${N(s.companies)} empresas · ${N(s.records)} registros en ${txt(s.last)}</span></button>`;
+  }).join('');
+  groupGate.classList.add('open');
+}
+function chooseGroup(grupo){
+  resetForGroup(grupo);
+  localStorage.setItem('remuGrupoSeleccionado',grupo);
+  initSelectors(); renderAll();
+  groupGate.classList.remove('open');
+}
 function initSelectors(){
   const months=groupMonths(state.grupo);
   setOptions(selGrupo, DATA.group_options, state.grupo);
@@ -740,11 +779,8 @@ function initSelectors(){
   fillGlobalFilters();
   fillMetricOptions();
   selGrupo.onchange=()=>{
-    state.grupo=selGrupo.value;
-    const ms=groupMonths(state.grupo);
-    state.base=ms.at(-2)?.id||ms[0]?.id||'';
-    state.comp=ms.at(-1)?.id||state.base;
-    state.empresa='';state.sede='';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.detailFilters={};
+    resetForGroup(selGrupo.value);
+    localStorage.setItem('remuGrupoSeleccionado',state.grupo);
     initSelectors(); renderAll();
   };
   selBase.onchange=()=>{state.base=selBase.value; renderAll()};
@@ -1569,7 +1605,10 @@ function handleFileUpload(e){
 function renderAll(){renderChips();renderCompanyDivision();renderKPIs();renderTotalsHighlights();renderKpisMenu();renderComparativo();renderConcepts();renderDeviaciones();renderAuditoria();renderDownloads();renderDetail();}
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>activateTab(t.dataset.sec)));
 document.addEventListener('click',e=>{if(!e.target.closest?.('#detailFilterMenu')&&!e.target.closest?.('.head-filter-btn'))closeDetailFilterMenu();});
+const savedGroup=localStorage.getItem('remuGrupoSeleccionado');
+if(savedGroup&&DATA.group_options.some(g=>g.id===savedGroup)) resetForGroup(savedGroup);
 initSelectors(); renderAll();
+if(!savedGroup) openGroupGate();
 </script>
 </body>
 </html>
