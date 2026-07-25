@@ -14,6 +14,10 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 OUTPUT = Path(os.environ.get("REMUN_OUTPUT", BASE_DIR / "index.html"))
+GROUP_OUTPUTS = {
+    "CRUX FOOD": BASE_DIR / "crux-food" / "index.html",
+    "Grupo Avanza": BASE_DIR / "grupo-avanza" / "index.html",
+}
 
 HEADER_ROW_INDEX = 5
 
@@ -460,6 +464,50 @@ def build_multi_data() -> dict:
     return data
 
 
+def data_for_group(data: dict, group_id: str) -> dict:
+    group = next(g for g in data["group_options"] if g["id"] == group_id)
+    months = data["months_by_group"].get(group_id, [])
+    month_ids = [m["id"] for m in months]
+    details = {
+        month: [dict(row) for row in data["details"].get(month, []) if row.get("grupo") == group_id]
+        for month in month_ids
+    }
+    concept_options = sorted({c for rows in details.values() for row in rows for c in row.get("concepts", {})})
+    metadata = dict(data["metadata"])
+    metadata.update(
+        {
+            "generated_from": f"Detalle grupo {group_id}",
+            "locked_group": group_id,
+            "month_count": len(months),
+            "record_count": sum(len(rows) for rows in details.values()),
+            "company_count": len({row["empresa"] for rows in details.values() for row in rows}),
+        }
+    )
+    out = {
+        "metadata": metadata,
+        "group_options": [group],
+        "months_by_group": {group_id: months},
+        "months": months,
+        "kpis": {},
+        "groups": {"empresa": {}, "sede": {}, "empresa_sede": {}},
+        "concepts": {},
+        "concept_groups": {},
+        "concept_options": concept_options,
+        "concept_types": data.get("concept_types", {}),
+        "details": {},
+    }
+    for month in month_ids:
+        rows = details[month]
+        out["kpis"][month] = summarize(rows)
+        out["groups"]["empresa"][month] = group_rows(rows, ("grupo", "empresa"))
+        out["groups"]["sede"][month] = group_rows(rows, ("grupo", "sede"))
+        out["groups"]["empresa_sede"][month] = group_rows(rows, ("grupo", "empresa", "sede"))
+        out["concept_groups"][month] = group_concepts_from_details(rows)
+        out["concepts"][month] = out["concept_groups"][month]["total"]
+        out["details"][month] = rows
+    return out
+
+
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -529,7 +577,7 @@ canvas{max-width:100%}
   </div>
   <span class="chip chip-b" id="chipBase"></span><span class="chip-vs">vs</span><span class="chip chip-g" id="chipComp"></span>
   <span style="font-size:11.5px;color:var(--text3)" id="sourceBadge"></span>
-  <div class="h-actions"><button class="btn" onclick="openGroupGate()">Cambiar grupo</button><button class="btn" onclick="window.print()">Imprimir</button></div>
+  <div class="h-actions"><button class="btn" id="groupSwitchBtn" onclick="openGroupGate()">Cambiar grupo</button><button class="btn" onclick="window.print()">Imprimir</button></div>
 </header>
 <div class="group-gate" id="groupGate">
   <div class="group-box">
@@ -749,6 +797,7 @@ function metricValueForKpi(month,key=state.metric){
   return getFilteredKpis(month)[key]||0;
 }
 function setOptions(sel, values, current){sel.innerHTML=values.map(v=>`<option value="${v.id}">${v.label}</option>`).join(''); sel.value=current}
+function lockedGroup(){return !!DATA.metadata.locked_group}
 function resetForGroup(grupo){
   state.grupo=grupo;
   const ms=groupMonths(state.grupo);
@@ -762,6 +811,7 @@ function groupStats(gid){
   return {months:months.length,companies:new Set(rows.map(r=>r.empresa)).size,records:rows.length,last:last?label(last):'Sin datos'};
 }
 function openGroupGate(){
+  if(lockedGroup()) return;
   groupGateCards.innerHTML=DATA.group_options.map(g=>{
     const s=groupStats(g.id);
     return `<button class="group-card" onclick="chooseGroup('${esc(g.id)}')"><b>${txt(g.label)}</b><span>${N(s.months)} meses · ${N(s.companies)} empresas · ${N(s.records)} registros en ${txt(s.last)}</span></button>`;
@@ -777,6 +827,8 @@ function chooseGroup(grupo){
 function initSelectors(){
   const months=groupMonths(state.grupo);
   setOptions(selGrupo, DATA.group_options, state.grupo);
+  selGrupo.closest('.ctrl').style.display=lockedGroup()?'none':'';
+  groupSwitchBtn.style.display=lockedGroup()?'none':'';
   setOptions(selBase, months, state.base); setOptions(selComp, months, state.comp); setOptions(detMonth, months, state.comp);
   fillGlobalFilters();
   fillMetricOptions();
@@ -1613,7 +1665,7 @@ document.addEventListener('click',e=>{if(!e.target.closest?.('#detailFilterMenu'
 const savedGroup=localStorage.getItem('remuGrupoSeleccionado');
 if(savedGroup&&DATA.group_options.some(g=>g.id===savedGroup)) resetForGroup(savedGroup);
 initSelectors(); renderAll();
-openGroupGate();
+if(!lockedGroup()) openGroupGate();
 </script>
 </body>
 </html>
@@ -1622,9 +1674,13 @@ openGroupGate();
 
 def main() -> None:
     data = build_multi_data()
-    html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
-    OUTPUT.write_text(html, encoding="utf-8")
-    print(f"Wrote {OUTPUT}")
+    outputs = [(OUTPUT, data)]
+    outputs.extend((path, data_for_group(data, group_id)) for group_id, path in GROUP_OUTPUTS.items())
+    for path, page_data in outputs:
+        html = HTML_TEMPLATE.replace("__DATA__", json.dumps(page_data, ensure_ascii=False, separators=(",", ":")))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(html, encoding="utf-8")
+        print(f"Wrote {path}")
     print(json.dumps(data["metadata"], ensure_ascii=False, indent=2))
 
 
