@@ -12,6 +12,7 @@ from openpyxl import load_workbook
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
+AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 OUTPUT = Path(os.environ.get("REMUN_OUTPUT", BASE_DIR / "index.html"))
 
 HEADER_ROW_INDEX = 5
@@ -283,12 +284,180 @@ def build_data() -> dict:
     return data
 
 
+def period_id(value) -> str:
+    if isinstance(value, (datetime, date)):
+        return value.strftime("%Y-%m")
+    text = clean(value)
+    if len(text) >= 7:
+        return text[:7]
+    return text
+
+
+def group_concepts_from_details(rows: list[dict]) -> dict:
+    grouped = {
+        "total": Counter(),
+        "grupo": defaultdict(Counter),
+        "empresa": defaultdict(Counter),
+        "sede": defaultdict(Counter),
+        "empresa_sede": defaultdict(Counter),
+    }
+    for row in rows:
+        grupo = row.get("grupo", "")
+        empresa = row.get("empresa", "")
+        sede = row.get("sede", "")
+        empresa_sede = f"{empresa} · {sede}"
+        for concept, value in row.get("concepts", {}).items():
+            value = num(value)
+            grouped["total"][concept] += value
+            grouped["grupo"][grupo][concept] += value
+            grouped["empresa"][empresa][concept] += value
+            grouped["sede"][sede][concept] += value
+            grouped["empresa_sede"][empresa_sede][concept] += value
+    return {
+        "total": dict(grouped["total"]),
+        "grupo": {k: dict(v) for k, v in grouped["grupo"].items()},
+        "empresa": {k: dict(v) for k, v in grouped["empresa"].items()},
+        "sede": {k: dict(v) for k, v in grouped["sede"].items()},
+        "empresa_sede": {k: dict(v) for k, v in grouped["empresa_sede"].items()},
+    }
+
+
+def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
+    if not AVANZA_SOURCE.exists():
+        return {}, {}, []
+    wb = load_workbook(AVANZA_SOURCE, read_only=True, data_only=True)
+    ws = wb["Libro de remu CE"]
+    headers = list(next(ws.iter_rows(min_row=6, max_row=6, values_only=True)))
+    idx = {h: i for i, h in enumerate(headers) if h}
+    concept_map = {
+        "Haberes Imponibles - Sueldo Base": ("Sueldo Base", "haber"),
+        "Haberes Imponibles - Gratificación": ("Gratificación", "haber"),
+        "Haberes Imponibles - Bono Gestión Trimestral": ("Bono Gestión Trimestral", "haber"),
+        "Haberes Imponibles - Horas Extras 50%": ("Horas Extras Empresa 50%", "haber"),
+        "Haberes No Imponibles - Colación": ("Colación", "haber"),
+        "Haberes No Imponibles - Movilización": ("Movilización", "haber"),
+        "Descuentos Legales - Cotiz. Previ. Obligatoria": ("Cotización Previsional", "descuento"),
+        "Descuentos Legales - Cotiz. Salud Obligatoria": ("Cotización Salud", "descuento"),
+        "Descuentos Legales - Adicional Salud": ("Adicional Salud", "descuento"),
+        "Descuentos Legales - Seguro Cesantía": ("Seguro Cesantía", "descuento"),
+        "Descuentos Legales - Impuesto Único": ("Impuesto Único", "descuento"),
+    }
+    concept_types = {label: typ for _, (label, typ) in concept_map.items()}
+    by_month: dict[str, list[dict]] = defaultdict(list)
+    for raw in ws.iter_rows(min_row=7, values_only=True):
+        if not raw or not raw[0]:
+            continue
+        period = period_id(raw[idx["Liquidación - Período"]])
+        empresa = clean(raw[idx["Empresa - Nombre Empresa"]]) or "Grupo Avanza SPA"
+        sede = clean(raw[idx["Trabajo - Nombre Sub-área Asignada(o)"]]) or "Sin sede"
+        concepts = {}
+        for source_name, (label, _) in concept_map.items():
+            value = num(raw[idx[source_name]] if idx[source_name] < len(raw) else 0)
+            if value:
+                concepts[label] = round(value)
+        total_desc = sum(num(raw[idx[name]] if idx[name] < len(raw) else 0) for name in [
+            "Descuentos Legales - Cotiz. Previ. Obligatoria",
+            "Descuentos Legales - Cotiz. Salud Obligatoria",
+            "Descuentos Legales - Adicional Salud",
+            "Descuentos Legales - Seguro Cesantía",
+            "Descuentos Legales - Impuesto Único",
+        ])
+        row = {
+            "grupo": "Grupo Avanza",
+            "rut": clean(raw[idx["Empleado - Número de Documento"]]),
+            "nombre": clean(raw[idx["Empleado - Nombre Completo"]]),
+            "cargo": "",
+            "contrato": "",
+            "empresa": empresa,
+            "rut_empresa": "",
+            "sede": sede,
+            "dias": num(raw[idx["Liquidación - Días Trabajados"]]),
+            "fte": round(num(raw[idx["Liquidación - Días Trabajados"]]) / 30, 2),
+            "sueldo_base": round(num(raw[idx["Haberes Imponibles - Sueldo Base"]])),
+            "total_haberes": round(num(raw[idx["Liquidación - Total Haberes"]])),
+            "total_descuentos": round(total_desc),
+            "sueldo_liquido": round(num(raw[idx["Liquidación - Sueldo Líquido"]])),
+            "hhee": round(num(raw[idx["Haberes Imponibles - Horas Extras 50%"]])),
+            "gratificacion": round(num(raw[idx["Haberes Imponibles - Gratificación"]])),
+            "movilizacion": round(num(raw[idx["Haberes No Imponibles - Movilización"]])),
+            "colacion": round(num(raw[idx["Haberes No Imponibles - Colación"]])),
+            "licencia_dias": 0,
+            "ausentismo_dias": 0,
+            "bono_manip_pae": 0,
+            "raw": [json_value(v) for v in raw],
+            "concepts": concepts,
+        }
+        by_month[period].append(row)
+    return by_month, concept_types, [json_value(h) for h in headers]
+
+
+def build_multi_data() -> dict:
+    crux = build_data()
+    details_by_month: dict[str, list[dict]] = defaultdict(list)
+    for month, rows in crux["details"].items():
+        for row in rows:
+            row = dict(row)
+            row["grupo"] = "CRUX FOOD"
+            row.setdefault("gratificacion", num(row.get("concepts", {}).get("Gratificación", 0)))
+            row.setdefault("movilizacion", num(row.get("concepts", {}).get("Movilizacion", row.get("concepts", {}).get("Movilización", 0))))
+            row.setdefault("colacion", num(row.get("concepts", {}).get("Colacion", row.get("concepts", {}).get("Colación", 0))))
+            details_by_month[month].append(row)
+    avanza_rows, avanza_concept_types, avanza_headers = avanza_details()
+    for month, rows in avanza_rows.items():
+        details_by_month[month].extend(rows)
+
+    months = sorted(details_by_month)
+    concept_types = dict(crux.get("concept_types", {}))
+    concept_types.update(avanza_concept_types)
+    concept_options = sorted({c for rows in details_by_month.values() for row in rows for c in row.get("concepts", {})})
+    group_options = [
+        {"id": "CRUX FOOD", "label": "CRUX FOOD"},
+        {"id": "Grupo Avanza", "label": "Grupo Avanza"},
+    ]
+    months_by_group = {}
+    for group in group_options:
+        gid = group["id"]
+        months_by_group[gid] = [{"id": m, "label": month_label(m)} for m in months if any(r.get("grupo") == gid for r in details_by_month[m])]
+
+    data = {
+        "metadata": {
+            "source": f"{SOURCE.name} + {AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else 'sin Avanza'}",
+            "generated_from": "Detalle multi grupo",
+            "month_count": len(months),
+            "record_count": sum(len(v) for v in details_by_month.values()),
+            "company_count": len({r["empresa"] for rows in details_by_month.values() for r in rows}),
+            "raw_headers": crux["metadata"].get("raw_headers", []),
+            "avanza_headers": avanza_headers,
+        },
+        "group_options": group_options,
+        "months_by_group": months_by_group,
+        "months": [{"id": m, "label": month_label(m)} for m in months],
+        "kpis": {},
+        "groups": {"empresa": {}, "sede": {}, "empresa_sede": {}},
+        "concepts": {},
+        "concept_groups": {},
+        "concept_options": concept_options,
+        "concept_types": concept_types,
+        "details": {},
+    }
+    for month in months:
+        rows = details_by_month[month]
+        data["kpis"][month] = summarize(rows)
+        data["groups"]["empresa"][month] = group_rows(rows, ("grupo", "empresa"))
+        data["groups"]["sede"][month] = group_rows(rows, ("grupo", "sede"))
+        data["groups"]["empresa_sede"][month] = group_rows(rows, ("grupo", "empresa", "sede"))
+        data["concept_groups"][month] = group_concepts_from_details(rows)
+        data["concepts"][month] = data["concept_groups"][month]["total"]
+        data["details"][month] = rows
+    return data
+
+
 HTML_TEMPLATE = """<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Comparador Remuneraciones · 13 meses</title>
+<title>Comparador Remuneraciones · Multi grupo</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
@@ -346,7 +515,7 @@ canvas{max-width:100%}
 <body>
 <header class="header">
   <div class="h-brand">
-    <div class="h-icon">13M</div>
+    <div class="h-icon">MG</div>
     <div><div class="h-name">Remuneraciones</div><div class="h-sub">Empresa / Sede</div></div>
   </div>
   <span class="chip chip-b" id="chipBase"></span><span class="chip-vs">vs</span><span class="chip chip-g" id="chipComp"></span>
@@ -364,6 +533,7 @@ canvas{max-width:100%}
 </nav>
 <main class="main">
   <div class="controlbar">
+    <div class="ctrl"><label>Grupo</label><select class="fsel" id="selGrupo"></select></div>
     <div class="ctrl"><label>Mes base</label><select class="fsel" id="selBase"></select></div>
     <div class="ctrl"><label>Mes comparación</label><select class="fsel" id="selComp"></select></div>
     <div class="ctrl"><label>Empresa</label><select class="fsel" id="selEmpresa"><option value="">Todas las empresas</option></select></div>
@@ -485,7 +655,17 @@ canvas{max-width:100%}
 </main>
 <script>
 let DATA = __DATA__;
-const state = {base: DATA.months.at(-2).id, comp: DATA.months.at(-1).id, empresa:'', sede:'', metric:'total_haberes', compareMetrics:['total_haberes','sueldo_liquido'], expandedCompanies:{}, expandedKpiRot:{}, expandedKpiAus:{}, expandedKpiLic:{}, kpiFocus:'', expandedDiffConcepts:{}, expandedDiffCompanies:{}, expandedDiffSedes:{}, conceptLimit:'15', conceptSort:'abs', conceptSearch:'', selectedConcept:'', detailFilters:{}};
+function ensureGroups(data){
+  data.group_options=data.group_options?.length?data.group_options:[{id:'CRUX FOOD',label:'CRUX FOOD'}];
+  data.months_by_group=data.months_by_group||Object.fromEntries(data.group_options.map(g=>[g.id,data.months]));
+  Object.values(data.details||{}).forEach(rows=>rows.forEach(r=>{r.grupo=r.grupo||data.group_options[0].id;}));
+  return data;
+}
+DATA=ensureGroups(DATA);
+const groupMonths=g=>(DATA.months_by_group?.[g]?.length?DATA.months_by_group[g]:DATA.months);
+const defaultGroup=DATA.group_options[0]?.id||'CRUX FOOD';
+const defaultMonths=groupMonths(defaultGroup);
+const state = {grupo:defaultGroup, base: defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', comp: defaultMonths.at(-1)?.id||defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', empresa:'', sede:'', metric:'total_haberes', compareMetrics:['total_haberes','sueldo_liquido'], expandedCompanies:{}, expandedKpiRot:{}, expandedKpiAus:{}, expandedKpiLic:{}, kpiFocus:'', expandedDiffConcepts:{}, expandedDiffCompanies:{}, expandedDiffSedes:{}, conceptLimit:'15', conceptSort:'abs', conceptSearch:'', selectedConcept:'', detailFilters:{}};
 let byId = Object.fromEntries(DATA.months.map(m=>[m.id,m]));
 let detailFilterTimer = null;
 let detailFilterKey = '';
@@ -513,12 +693,12 @@ function metricOptions(){
 function metricName(key){return Object.fromEntries(metricOptions())[key]||key}
 function isConceptMetric(key=state.metric){return key.startsWith('concept::')}
 function conceptName(key=state.metric){return key.replace('concept::','')}
-function filterLabel(){return [state.empresa||'Todas las empresas',state.sede||'Todas las sedes'].join(' · ')}
+function filterLabel(){return [state.grupo||'Todos los grupos',state.empresa||'Todas las empresas',state.sede||'Todas las sedes'].join(' · ')}
+function inGroup(r){return !state.grupo||r.grupo===state.grupo}
 function selectedRows(month=state.comp){
-  return (DATA.groups.empresa_sede[month] || []).filter(r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
+  return (DATA.groups.empresa_sede[month] || []).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
 }
 function getFilteredKpis(month){
-  if(!state.empresa && !state.sede) return DATA.kpis[month];
   const rows=selectedRows(month);
   const sum=k=>rows.reduce((a,r)=>a+(r[k]||0),0),dot=sum('dotacion'),fte=sum('fte'),cero=sum('cero_dias'),menos=sum('menos30');
   return {
@@ -530,7 +710,7 @@ function getFilteredKpis(month){
   };
 }
 function movementStats(){
-  const filter=r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede);
+  const filter=r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede);
   const base=(DATA.details[state.base]||[]).filter(filter),comp=(DATA.details[state.comp]||[]).filter(filter);
   const bs=new Set(base.map(r=>r.rut)),cs=new Set(comp.map(r=>r.rut));
   return {ingresos:[...cs].filter(r=>!bs.has(r)).length,egresos:[...bs].filter(r=>!cs.has(r)).length,permanentes:[...cs].filter(r=>bs.has(r)).length};
@@ -540,6 +720,7 @@ function getConceptDict(month){
   if(state.empresa&&state.sede) return cg.empresa_sede[`${state.empresa} · ${state.sede}`]||{};
   if(state.empresa) return cg.empresa[state.empresa]||{};
   if(state.sede) return cg.sede[state.sede]||{};
+  if(state.grupo) return cg.grupo?.[state.grupo]||{};
   return cg.total||{};
 }
 function groupConceptValue(month,row,metric=state.metric){
@@ -553,10 +734,19 @@ function metricValueForKpi(month,key=state.metric){
 }
 function setOptions(sel, values, current){sel.innerHTML=values.map(v=>`<option value="${v.id}">${v.label}</option>`).join(''); sel.value=current}
 function initSelectors(){
-  const months=DATA.months;
+  const months=groupMonths(state.grupo);
+  setOptions(selGrupo, DATA.group_options, state.grupo);
   setOptions(selBase, months, state.base); setOptions(selComp, months, state.comp); setOptions(detMonth, months, state.comp);
   fillGlobalFilters();
   fillMetricOptions();
+  selGrupo.onchange=()=>{
+    state.grupo=selGrupo.value;
+    const ms=groupMonths(state.grupo);
+    state.base=ms.at(-2)?.id||ms[0]?.id||'';
+    state.comp=ms.at(-1)?.id||state.base;
+    state.empresa='';state.sede='';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.detailFilters={};
+    initSelectors(); renderAll();
+  };
   selBase.onchange=()=>{state.base=selBase.value; renderAll()};
   selComp.onchange=()=>{state.comp=selComp.value; fillGlobalFilters(); syncDetailFilters(); renderAll()};
   selEmpresa.onchange=()=>{state.empresa=selEmpresa.value; state.sede=''; fillGlobalFilters(); syncDetailFilters(); renderAll()};
@@ -567,7 +757,7 @@ function initSelectors(){
   refreshDetailFilters();
 }
 function fillGlobalFilters(){
-  const rows=DATA.groups.empresa_sede[state.comp]||[];
+  const rows=(DATA.groups.empresa_sede[state.comp]||[]).filter(inGroup);
   const empresas=[...new Set(rows.map(r=>r.empresa))].sort();
   selEmpresa.innerHTML='<option value="">Todas las empresas</option>'+empresas.map(e=>`<option value="${e}">${e}</option>`).join('');
   if(empresas.includes(state.empresa)) selEmpresa.value=state.empresa; else state.empresa='';
@@ -589,7 +779,7 @@ function syncDetailFilters(){
 function renderChips(){
   chipBase.textContent=label(state.base); chipComp.textContent=label(state.comp);
   sourceBadge.textContent=`Archivo cargado por defecto: ${DATA.metadata.source} · ${DATA.metadata.month_count} meses`;
-  dashSub.textContent=`${DATA.metadata.record_count.toLocaleString('es-CL')} registros · ${DATA.metadata.company_count} empresas · ${DATA.metadata.month_count} meses · ${filterLabel()}`;
+  dashSub.textContent=`${DATA.metadata.record_count.toLocaleString('es-CL')} registros · ${DATA.group_options.length} grupos · ${DATA.metadata.company_count} empresas · ${filterLabel()}`;
 }
 function renderKPIs(){
   const f=getFilteredKpis(state.base),m=getFilteredKpis(state.comp);
@@ -688,14 +878,15 @@ function renderTrend(){
   const cv=trend,ctx=cv.getContext('2d'),w=cv.width,h=cv.height,p=34;
   ctx.clearRect(0,0,w,h); ctx.font='11px Inter, sans-serif'; ctx.strokeStyle='#e2e6ef'; ctx.lineWidth=1;
   for(let i=0;i<4;i++){const y=p+i*(h-2*p)/3; ctx.beginPath(); ctx.moveTo(p,y); ctx.lineTo(w-p,y); ctx.stroke();}
-  const vals=DATA.months.map(m=>getFilteredKpis(m.id).total_haberes),dots=DATA.months.map(m=>getFilteredKpis(m.id).dotacion);
+  const months=groupMonths(state.grupo);
+  const vals=months.map(m=>getFilteredKpis(m.id).total_haberes),dots=months.map(m=>getFilteredKpis(m.id).dotacion);
   const maxV=Math.max(...vals),minV=Math.min(...vals),maxD=Math.max(...dots),minD=Math.min(...dots);
-  const x=i=>p+i*(w-2*p)/(DATA.months.length-1);
+  const x=i=>p+i*(w-2*p)/(months.length-1);
   const yV=v=>h-p-(v-minV)/Math.max(maxV-minV,1)*(h-2*p);
   const yD=v=>h-p-(v-minD)/Math.max(maxD-minD,1)*(h-2*p);
   function line(arr,yf,color){ctx.beginPath();arr.forEach((v,i)=>i?ctx.lineTo(x(i),yf(v)):ctx.moveTo(x(i),yf(v)));ctx.strokeStyle=color;ctx.lineWidth=3;ctx.stroke();arr.forEach((v,i)=>{ctx.beginPath();ctx.arc(x(i),yf(v),3,0,Math.PI*2);ctx.fillStyle=color;ctx.fill();});}
   line(vals,yV,'#2563eb'); line(dots,yD,'#059669');
-  DATA.months.forEach((m,i)=>{ctx.fillStyle='#9198b5';ctx.textAlign='center';ctx.fillText(m.label.split(' ')[0],x(i),h-10);});
+  months.forEach((m,i)=>{ctx.fillStyle='#9198b5';ctx.textAlign='center';ctx.fillText(m.label.split(' ')[0],x(i),h-10);});
   ctx.textAlign='left';ctx.fillStyle='#2563eb';ctx.fillText('Suma Haberes',p,15);ctx.fillStyle='#059669';ctx.fillText('Dotación',p+98,15);
 }
 function compareGroupRows(){
@@ -800,7 +991,7 @@ function toggleDiffConcept(concept){
   renderConcepts();
 }
 function workerConceptRows(month,concept){
-  return (DATA.details[month]||[]).filter(r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede)).map(r=>({
+  return (DATA.details[month]||[]).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede)).map(r=>({
     rut:r.rut,nombre:r.nombre,empresa:r.empresa,sede:r.sede,value:+(r.concepts?.[concept]||0)
   })).filter(r=>r.value!==0);
 }
@@ -829,7 +1020,7 @@ function toggleDiffSede(sedeKey){
   renderConcepts();
 }
 function filteredDetails(month){
-  return (DATA.details[month]||[]).filter(r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
+  return (DATA.details[month]||[]).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
 }
 function treeFromWorkers(workers,valueKey){
   const emps={};
@@ -904,8 +1095,8 @@ function renderKpisMenu(){
 }
 function renderDeviaciones(){
   const f=getFilteredKpis(state.base),m=getFilteredKpis(state.comp);
-  const base=(DATA.details[state.base]||[]).filter(r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
-  const comp=(DATA.details[state.comp]||[]).filter(r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
+  const base=(DATA.details[state.base]||[]).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
+  const comp=(DATA.details[state.comp]||[]).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
   const bs=new Set(base.map(r=>r.rut)),cs=new Set(comp.map(r=>r.rut));
   const bajas=[...bs].filter(r=>!cs.has(r)).length,altas=[...cs].filter(r=>!bs.has(r)).length,perm=[...bs].filter(r=>cs.has(r)).length;
   const habDif=m.total_haberes-f.total_haberes,pp=deltaPct(f.total_haberes,m.total_haberes);
@@ -932,7 +1123,7 @@ function renderDeviaciones(){
   devRatioBody.innerHTML=ratios.map(([name,key,b,c,type])=>{const d=c-b;const baseFmt=type==='$'?K(b):type==='%'?P(b):b.toFixed(1);const compFmt=type==='$'?K(c):type==='%'?P(c):c.toFixed(1);const dFmt=type==='$'?`${sign(d)}${K(d)}`:type==='%'?`${sign(d)}${d.toFixed(1)}pp`:`${sign(d)}${d.toFixed(1)}`;return `<tr><td class="tn">${name}</td><td class="nr">${baseFmt}</td><td class="nr">${compFmt}</td><td class="nr ${cls(d)}" style="font-weight:700">${dFmt}</td></tr>`}).join('');
 }
 function auditRows(){
-  return (DATA.details[state.comp]||[]).filter(r=>(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
+  return (DATA.details[state.comp]||[]).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
 }
 function isManipPae(r){
   return String(r.cargo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('manipulador (a) de alimentos pae');
@@ -962,6 +1153,10 @@ const downloadReports=[
   {id:'jcuevas',name:'J.Cuevas',file:'Revision_JCUEVAS',rule:'Sedes UT, excluyendo Alianza y Claudia Pakarati',filter:r=>String(r.sede||'').toUpperCase().startsWith('UT')&&!isAlianzaRow(r)&&!isPakaratiRow(r)},
   {id:'alianza',name:'Alianza',file:'Revision_ALIANZA',rule:'Solo empresa Alianza',filter:r=>isAlianzaRow(r)},
 ];
+const avanzaDownloadReports=[
+  {id:'avanza_general',name:'Grupo Avanza',file:'GA_Informe_General',rule:'Todas las áreas de Grupo Avanza',filter:r=>true},
+];
+function activeDownloadReports(){return state.grupo==='Grupo Avanza'?avanzaDownloadReports:downloadReports;}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function isPakarati(s){const x=norm(s);return x.includes('pakarati')||x.includes('claudia lorena');}
 function isAlianza(s){return norm(s).includes('alianza');}
@@ -969,17 +1164,19 @@ function companyText(r){return [r.empresa,r.raw?.[0],r.raw?.[1],r.raw?.[2]].map(
 function isPakaratiRow(r){return isPakarati(companyText(r));}
 function isPakaratiDownloadRow(r){const sede=norm(r.sede);return sede==='ut isla'||sede.includes('oficinas tekarera')||sede.includes('oficina pakarati')||sede.includes('oficinas pakarati');}
 function isAlianzaRow(r){return isAlianza(companyText(r));}
-function reportMonths(){return [DATA.months.at(-2)?.id,DATA.months.at(-1)?.id].filter(Boolean);}
+function reportMonths(){const months=groupMonths(state.grupo);return [months.at(-2)?.id,months.at(-1)?.id].filter(Boolean);}
+function reportBaseFilter(r){return inGroup(r);}
 function downloadStats(report){
-  const [base,comp]=reportMonths(),br=(DATA.details[base]||[]).filter(report.filter),cr=(DATA.details[comp]||[]).filter(report.filter);
+  const [base,comp]=reportMonths(),br=(DATA.details[base]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r)),cr=(DATA.details[comp]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r));
   return {base,comp,baseCount:br.length,compCount:cr.length};
 }
 function renderDownloads(){
   const [base,comp]=reportMonths();
-  downloadSub.textContent=`${label(base)} → ${label(comp)} · fuente: ${DATA.metadata.source}`;
-  const total=downloadReports.reduce((a,r)=>{const s=downloadStats(r);a.base+=s.baseCount;a.comp+=s.compCount;return a;},{base:0,comp:0});
-  downloadGrid.innerHTML=`<div class="rc" style="border-top:3px solid var(--blue)"><div class="rv" style="color:var(--blue)">${downloadReports.length}</div><div class="rl">Archivos</div><div class="rs">Cortes configurados</div></div><div class="rc" style="border-top:3px solid var(--green)"><div class="rv" style="color:var(--green)">${label(base)}</div><div class="rl">Mes anterior</div><div class="rs">${N(total.base)} registros en cortes</div></div><div class="rc" style="border-top:3px solid var(--purple)"><div class="rv" style="color:var(--purple)">${label(comp)}</div><div class="rl">Mes actual</div><div class="rs">${N(total.comp)} registros en cortes</div></div>`;
-  downloadBody.innerHTML=downloadReports.map(r=>{const s=downloadStats(r);return `<tr><td class="tn">${r.name}</td><td>${r.rule}</td><td class="nr">${N(s.baseCount)}</td><td class="nr">${N(s.compCount)}</td><td class="nr"><button class="btn" onclick="downloadRevision('${r.id}')">Descargar</button></td></tr>`}).join('');
+  const reports=activeDownloadReports();
+  downloadSub.textContent=`${label(base)} → ${label(comp)} · ${state.grupo} · fuente: ${DATA.metadata.source}`;
+  const total=reports.reduce((a,r)=>{const s=downloadStats(r);a.base+=s.baseCount;a.comp+=s.compCount;return a;},{base:0,comp:0});
+  downloadGrid.innerHTML=`<div class="rc" style="border-top:3px solid var(--blue)"><div class="rv" style="color:var(--blue)">${reports.length}</div><div class="rl">Archivos</div><div class="rs">Cortes configurados</div></div><div class="rc" style="border-top:3px solid var(--green)"><div class="rv" style="color:var(--green)">${label(base)}</div><div class="rl">Mes anterior</div><div class="rs">${N(total.base)} registros en cortes</div></div><div class="rc" style="border-top:3px solid var(--purple)"><div class="rv" style="color:var(--purple)">${label(comp)}</div><div class="rl">Mes actual</div><div class="rs">${N(total.comp)} registros en cortes</div></div>`;
+  downloadBody.innerHTML=reports.map(r=>{const s=downloadStats(r);return `<tr><td class="tn">${r.name}</td><td>${r.rule}</td><td class="nr">${N(s.baseCount)}</td><td class="nr">${N(s.compCount)}</td><td class="nr"><button class="btn" onclick="downloadRevision('${r.id}')">Descargar</button></td></tr>`}).join('');
 }
 function summarizeDownloadRows(rows,groupKey){
   const map={};
@@ -1001,7 +1198,8 @@ function detailSheetAoA(baseRows,compRows,base,comp){
   return rows;
 }
 function monthRowsAoA(rows,month){
-  const headers=DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo'];
+  const isAvanza=rows.some(r=>r.grupo==='Grupo Avanza')&&!rows.some(r=>r.grupo==='CRUX FOOD');
+  const headers=isAvanza&&DATA.metadata.avanza_headers?.length?DATA.metadata.avanza_headers:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']);
   return [headers,...rows.map(r=>{
     if(r.raw?.length) return headers.map((_,i)=>r.raw[i]??'');
     const fallback=['',r.empresa,'',month,r.nombre,r.rut,r.contrato,r.sede,r.dias,r.cargo];
@@ -1065,9 +1263,9 @@ function appendSheet(wb,name,aoa,kind='summary'){
 }
 function downloadRevision(id){
   if(!window.XLSX){alert('No se pudo cargar la librería XLSX. Revisa la conexión a internet.');return;}
-  const report=downloadReports.find(r=>r.id===id); if(!report) return;
+  const report=activeDownloadReports().find(r=>r.id===id); if(!report) return;
   const [base,comp]=reportMonths(); if(!base||!comp){alert('Se necesitan al menos 2 meses en el archivo cargado.');return;}
-  const baseRows=(DATA.details[base]||[]).filter(report.filter),compRows=(DATA.details[comp]||[]).filter(report.filter);
+  const baseRows=(DATA.details[base]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r)),compRows=(DATA.details[comp]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r));
   const wb=XLSX.utils.book_new();
   appendSheet(wb,'Resumen por empresa',summarySheetAoA('Grupo',baseRows,compRows,'empresa',base,comp),'summary');
   appendSheet(wb,'Resumen completo',summarySheetAoA('Grupo',baseRows,compRows,'sede',base,comp),'summary');
@@ -1108,7 +1306,7 @@ function goWorkerDetail(month,rut){
   activateTab('detalle');
 }
 function refreshDetailFilters(){
-  const month=detMonth.value || state.comp, rows=DATA.details[month]||[],currentEmpresa=detEmpresa.value,currentSede=detSede.value,currentCargo=detCargo.value,currentConcept=detConcept.value;
+  const month=detMonth.value || state.comp, rows=(DATA.details[month]||[]).filter(inGroup),currentEmpresa=detEmpresa.value,currentSede=detSede.value,currentCargo=detCargo.value,currentConcept=detConcept.value;
   const empresas=[...new Set(rows.map(r=>r.empresa))].sort();
   detEmpresa.innerHTML='<option value="">Todas las empresas</option>'+empresas.map(e=>`<option value="${e}">${e}</option>`).join('');
   if(empresas.includes(currentEmpresa)) detEmpresa.value=currentEmpresa;
@@ -1167,6 +1365,7 @@ function detailRowPassesColumnFilters(r,cols,skipKey=''){
 function detailGlobalRows(){
   const month=detMonth.value || state.comp,q=srch.value.toLowerCase(),empresa=detEmpresa.value,sede=detSede.value,dias=detDias.value,cargo=detCargo.value,concept=detConcept.value;
   return (DATA.details[month]||[]).filter(r=>{
+    if(!inGroup(r))return false;
     if(empresa&&r.empresa!==empresa)return false; if(sede&&r.sede!==sede)return false;
     if(cargo&&r.cargo!==cargo)return false; if(concept&&!(r.concepts?.[concept]))return false;
     if(dias==='0'&&r.dias!==0)return false; if(dias==='p'&&!(r.dias>0&&r.dias<30))return false; if(dias==='f'&&r.dias<30)return false;
@@ -1288,13 +1487,13 @@ function groupRowsJs(rows,keys){
   return Object.entries(buckets).map(([key,items])=>{const out=summarizeRows(items);keys.forEach((k,i)=>out[k]=items[0][k]||'Sin dato');out.key=key;return out;}).sort((a,b)=>b.total_haberes-a.total_haberes);
 }
 function groupConceptsJs(rows,conceptCols){
-  const grouped={total:{},empresa:{},sede:{},empresa_sede:{}};
+  const grouped={total:{},grupo:{},empresa:{},sede:{},empresa_sede:{}};
   const add=(bucket,key,concept,value)=>{const obj=key?((grouped[bucket][key]=grouped[bucket][key]||{})):grouped[bucket];obj[concept]=(obj[concept]||0)+value;};
   rows.forEach(r=>{
     const emp=r.empresa,sede=r.sede,empSede=`${emp} · ${sede}`;
     conceptCols.forEach(({idx,label})=>{
       const value=parseNumber(r._raw[idx]||0);
-      add('total','',label,value);add('empresa',emp,label,value);add('sede',sede,label,value);add('empresa_sede',empSede,label,value);
+      add('total','',label,value);add('grupo',r.grupo||'CRUX FOOD',label,value);add('empresa',emp,label,value);add('sede',sede,label,value);add('empresa_sede',empSede,label,value);
     });
   });
   return grouped;
@@ -1322,7 +1521,7 @@ function buildDataFromRows(aoa,fileName){
       const monthSums=conceptSums[period]=conceptSums[period]||{};
       monthSums[c.label]=(monthSums[c.label]||0)+v;
     });
-    const row={_raw:headers.map((_,i)=>raw[i]??''),proceso:period,empresa,sede,nombre:cleanText(rawVal(raw,idx,'Nombre')),rut:cleanText(rawVal(raw,idx,'Rut')),contrato:cleanText(rawVal(raw,idx,'Contrato')),cargo:cleanText(rawVal(raw,idx,'Cargo')),
+    const row={_raw:headers.map((_,i)=>raw[i]??''),grupo:'CRUX FOOD',proceso:period,empresa,sede,nombre:cleanText(rawVal(raw,idx,'Nombre')),rut:cleanText(rawVal(raw,idx,'Rut')),contrato:cleanText(rawVal(raw,idx,'Contrato')),cargo:cleanText(rawVal(raw,idx,'Cargo')),
       dias:numVal(raw,idx,'Días Trabajados'),sueldo_base:numVal(raw,idx,'Sueldo Base'),total_haberes:numVal(raw,idx,'Suma Haberes'),sueldo_liquido:numVal(raw,idx,'Sueldo Líquido'),
       total_descuentos:numVal(raw,idx,'Total Rebajas'),gratificacion:numVal(raw,idx,'Gratificación'),hhee:numVal(raw,idx,'Horas Extras Empresa 50%'),
       licencia_dias:sumHeaders(raw,headers,k=>k.includes('licencia')),ausentismo_dias:sumHeaders(raw,headers,k=>k.includes('licencia')||k.includes('permiso')||k.includes('falta')),
@@ -1332,23 +1531,25 @@ function buildDataFromRows(aoa,fileName){
   });
   const conceptTypes={};
   conceptCols.forEach(c=>{conceptTypes[c.label]=c.type;});
-  const months=Object.keys(byMonth).sort(),data={metadata:{source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers},months:months.map(m=>({id:m,label:monthLabelFromPeriod(m)})),kpis:{},groups:{empresa:{},sede:{},empresa_sede:{}},concepts:{},concept_groups:{},concept_options:[...new Set(conceptCols.map(c=>c.label))].sort(),concept_types:conceptTypes,details:{}};
+  const months=Object.keys(byMonth).sort(),data={metadata:{source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers},group_options:[{id:'CRUX FOOD',label:'CRUX FOOD'}],months_by_group:{'CRUX FOOD':months.map(m=>({id:m,label:monthLabelFromPeriod(m)}))},months:months.map(m=>({id:m,label:monthLabelFromPeriod(m)})),kpis:{},groups:{empresa:{},sede:{},empresa_sede:{}},concepts:{},concept_groups:{},concept_options:[...new Set(conceptCols.map(c=>c.label))].sort(),concept_types:conceptTypes,details:{}};
   months.forEach(month=>{
     const rows=byMonth[month];
     data.kpis[month]=summarizeRows(rows);
-    data.groups.empresa[month]=groupRowsJs(rows,['empresa']);
-    data.groups.sede[month]=groupRowsJs(rows,['sede']);
-    data.groups.empresa_sede[month]=groupRowsJs(rows,['empresa','sede']);
+    data.groups.empresa[month]=groupRowsJs(rows,['grupo','empresa']);
+    data.groups.sede[month]=groupRowsJs(rows,['grupo','sede']);
+    data.groups.empresa_sede[month]=groupRowsJs(rows,['grupo','empresa','sede']);
     data.concepts[month]=conceptSums[month]||{};
     data.concept_groups[month]=groupConceptsJs(rows,conceptCols);
-    data.details[month]=rows.map(r=>({rut:r.rut,nombre:r.nombre,cargo:r.cargo,contrato:r.contrato,empresa:r.empresa,sede:r.sede,dias:r.dias,fte:+(r.dias/30).toFixed(2),sueldo_base:Math.round(r.sueldo_base),total_haberes:Math.round(r.total_haberes),total_descuentos:Math.round(r.total_descuentos),sueldo_liquido:Math.round(r.sueldo_liquido),hhee:Math.round(r.hhee),licencia_dias:+(r.licencia_dias||0).toFixed(1),ausentismo_dias:+(r.ausentismo_dias||0).toFixed(1),bono_manip_pae:Math.round(r.bono_manip_pae),raw:r._raw,concepts:Object.fromEntries(Object.entries(r.concept_values).map(([k,v])=>[k,Math.round(v)]))}));
+    data.details[month]=rows.map(r=>({grupo:r.grupo,rut:r.rut,nombre:r.nombre,cargo:r.cargo,contrato:r.contrato,empresa:r.empresa,sede:r.sede,dias:r.dias,fte:+(r.dias/30).toFixed(2),sueldo_base:Math.round(r.sueldo_base),total_haberes:Math.round(r.total_haberes),total_descuentos:Math.round(r.total_descuentos),sueldo_liquido:Math.round(r.sueldo_liquido),hhee:Math.round(r.hhee),licencia_dias:+(r.licencia_dias||0).toFixed(1),ausentismo_dias:+(r.ausentismo_dias||0).toFixed(1),bono_manip_pae:Math.round(r.bono_manip_pae),raw:r._raw,concepts:Object.fromEntries(Object.entries(r.concept_values).map(([k,v])=>[k,Math.round(v)]))}));
   });
   return data;
 }
 function reloadData(newData){
-  DATA=newData; byId=Object.fromEntries(DATA.months.map(m=>[m.id,m]));
-  state.base=DATA.months.at(-2)?.id||DATA.months[0]?.id||''; state.comp=DATA.months.at(-1)?.id||state.base;
-    state.empresa='';state.sede='';state.metric='total_haberes';state.compareMetrics=['total_haberes','sueldo_liquido'];state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.selectedConcept='';state.detailFilters={};
+  DATA=ensureGroups(newData); byId=Object.fromEntries(DATA.months.map(m=>[m.id,m]));
+  state.grupo=DATA.group_options[0]?.id||'CRUX FOOD';
+  const months=groupMonths(state.grupo);
+  state.base=months.at(-2)?.id||months[0]?.id||''; state.comp=months.at(-1)?.id||state.base;
+  state.empresa='';state.sede='';state.metric='total_haberes';state.compareMetrics=['total_haberes','sueldo_liquido'];state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.selectedConcept='';state.detailFilters={};
   initSelectors(); renderAll();
 }
 function handleFileUpload(e){
@@ -1376,7 +1577,7 @@ initSelectors(); renderAll();
 
 
 def main() -> None:
-    data = build_data()
+    data = build_multi_data()
     html = HTML_TEMPLATE.replace("__DATA__", json.dumps(data, ensure_ascii=False, separators=(",", ":")))
     OUTPUT.write_text(html, encoding="utf-8")
     print(f"Wrote {OUTPUT}")
