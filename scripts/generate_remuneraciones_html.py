@@ -1191,6 +1191,7 @@ const downloadReports=[
 ];
 const avanzaDownloadReports=[
   {id:'avanza_general',name:'Grupo Avanza',file:'GA_Informe_General',rule:'Todas las áreas de Grupo Avanza',filter:r=>true},
+  {id:'avanza_outsourcing',name:'Outsourcing',file:'GA_Outsourcing',rule:'Grupo Avanza sin overhead',filter:r=>!isOverheadRow(r)},
 ];
 function activeDownloadReports(){return state.grupo==='Grupo Avanza'?avanzaDownloadReports:downloadReports;}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
@@ -1200,6 +1201,7 @@ function companyText(r){return [r.empresa,r.raw?.[0],r.raw?.[1],r.raw?.[2]].map(
 function isPakaratiRow(r){return isPakarati(companyText(r));}
 function isPakaratiDownloadRow(r){const sede=norm(r.sede);return sede==='ut isla'||sede.includes('oficinas tekarera')||sede.includes('oficina pakarati')||sede.includes('oficinas pakarati');}
 function isAlianzaRow(r){return isAlianza(companyText(r));}
+function isOverheadRow(r){return norm([r.empresa,r.sede,r.cargo,r.raw?.join(' ')].join(' ')).includes('overhead');}
 function reportMonths(){const months=groupMonths(state.grupo);return [months.at(-2)?.id,months.at(-1)?.id].filter(Boolean);}
 function reportBaseFilter(r){return inGroup(r);}
 function downloadStats(report){
@@ -1221,7 +1223,7 @@ function summarizeDownloadRows(rows,groupKey){
 }
 function summarySheetAoA(title,baseRows,compRows,groupKey,base,comp){
   const bm=summarizeDownloadRows(baseRows,groupKey),cm=summarizeDownloadRows(compRows,groupKey),keys=[...new Set([...Object.keys(bm),...Object.keys(cm)])].sort();
-  const rows=[['',title,'Dotación',null,null,'FTE',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null],['','',base,comp,'Diferencia',base,comp,'Diferencia',base,comp,'Diferencia',base,comp,'Diferencia']];
+  const rows=[['',title,'Dotación',null,null,'FTE',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null],['','',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia']];
   let total={bd:0,cd:0,bf:0,cf:0,bl:0,cl:0,bh:0,ch:0};
   keys.forEach((k,i)=>{const b=bm[k]||{},c=cm[k]||{};total.bd+=b.dotacion||0;total.cd+=c.dotacion||0;total.bf+=b.fte||0;total.cf+=c.fte||0;total.bl+=b.liquido||0;total.cl+=c.liquido||0;total.bh+=b.haberes||0;total.ch+=c.haberes||0;rows.push([i+1,k,b.dotacion||0,c.dotacion||0,(c.dotacion||0)-(b.dotacion||0),+(b.fte||0).toFixed(2),+(c.fte||0).toFixed(2),+((c.fte||0)-(b.fte||0)).toFixed(2),Math.round(b.liquido||0),Math.round(c.liquido||0),Math.round((c.liquido||0)-(b.liquido||0)),Math.round(b.haberes||0),Math.round(c.haberes||0),Math.round((c.haberes||0)-(b.haberes||0))]);});
   rows.push(['','TOTAL',total.bd,total.cd,total.cd-total.bd,+total.bf.toFixed(2),+total.cf.toFixed(2),+(total.cf-total.bf).toFixed(2),Math.round(total.bl),Math.round(total.cl),Math.round(total.cl-total.bl),Math.round(total.bh),Math.round(total.ch),Math.round(total.ch-total.bh)]);
@@ -1229,7 +1231,7 @@ function summarySheetAoA(title,baseRows,compRows,groupKey,base,comp){
 }
 function detailSheetAoA(baseRows,compRows,base,comp){
   const bm=Object.fromEntries(baseRows.map(r=>[r.rut,r])),cm=Object.fromEntries(compRows.map(r=>[r.rut,r])),keys=[...new Set([...Object.keys(bm),...Object.keys(cm)])].sort((a,b)=>String((cm[a]||bm[a]).empresa).localeCompare(String((cm[b]||bm[b]).empresa))||String((cm[a]||bm[a]).sede).localeCompare(String((cm[b]||bm[b]).sede))||String((cm[a]||bm[a]).nombre).localeCompare(String((cm[b]||bm[b]).nombre)));
-  const rows=[['N°','Empresa','Nombre','Rut','Sede','Cargo','Días Trab.',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null,'Sueldo Base',null,null],['','','','','','',base,comp,'Diferencia',base,comp,'Diferencia',base,comp,'Diferencia',base,comp,'Diferencia']];
+  const rows=[['N°','Empresa','Nombre','Rut','Sede','Cargo','Días Trab.',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null,'Sueldo Base',null,null],['','','','','','',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia']];
   keys.forEach((rut,i)=>{const b=bm[rut]||{},c=cm[rut]||{},r=c.rut?c:b;rows.push([i+1,r.empresa,r.nombre,r.rut,r.sede,r.cargo,b.dias||0,c.dias||0,(c.dias||0)-(b.dias||0),b.sueldo_liquido||0,c.sueldo_liquido||0,(c.sueldo_liquido||0)-(b.sueldo_liquido||0),b.total_haberes||0,c.total_haberes||0,(c.total_haberes||0)-(b.total_haberes||0),b.sueldo_base||0,c.sueldo_base||0,(c.sueldo_base||0)-(b.sueldo_base||0)]);});
   return rows;
 }
@@ -1297,6 +1299,7 @@ function appendSheet(wb,name,aoa,kind='summary'){
   if(kind==='month'){ws['!freeze']={xSplit:0,ySplit:1};ws['!views']=[{state:'frozen',ySplit:1,topLeftCell:'A2'}];}
   XLSX.utils.book_append_sheet(wb,ws,name);
 }
+function sheetMonthName(month){return [String.fromCharCode(92),'/','?','*','[',']',':'].reduce((name,ch)=>name.split(ch).join(' '),label(month)).slice(0,31);}
 function downloadRevision(id){
   if(!window.XLSX){alert('No se pudo cargar la librería XLSX. Revisa la conexión a internet.');return;}
   const report=activeDownloadReports().find(r=>r.id===id); if(!report) return;
@@ -1306,8 +1309,8 @@ function downloadRevision(id){
   appendSheet(wb,'Resumen por empresa',summarySheetAoA('Grupo',baseRows,compRows,'empresa',base,comp),'summary');
   appendSheet(wb,'Resumen completo',summarySheetAoA('Grupo',baseRows,compRows,'sede',base,comp),'summary');
   appendSheet(wb,'Detalle individual',detailSheetAoA(baseRows,compRows,base,comp),'detail');
-  appendSheet(wb,'Mes anterior',monthRowsAoA(baseRows,base),'month');
-  appendSheet(wb,'Mes actual',monthRowsAoA(compRows,comp),'month');
+  appendSheet(wb,sheetMonthName(base),monthRowsAoA(baseRows,base),'month');
+  appendSheet(wb,sheetMonthName(comp),monthRowsAoA(compRows,comp),'month');
   XLSX.writeFile(wb,`${report.file}_${String(comp).replace('-','_')}.xlsx`);
 }
 function activateTab(sec){
