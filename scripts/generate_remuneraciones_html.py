@@ -18,6 +18,7 @@ GROUP_OUTPUTS = {
     "CRUX FOOD": BASE_DIR / "crux-food" / "index.html",
     "Grupo Avanza": BASE_DIR / "grupo-avanza" / "index.html",
 }
+ARTBPO_OUTPUT = BASE_DIR / "artbpo" / "index.html"
 
 HEADER_ROW_INDEX = 5
 
@@ -440,6 +441,7 @@ def build_multi_data() -> dict:
             "company_count": len({r["empresa"] for rows in details_by_month.values() for r in rows}),
             "raw_headers": crux["metadata"].get("raw_headers", []),
             "avanza_headers": avanza_headers,
+            "show_audit": False,
         },
         "group_options": group_options,
         "months_by_group": months_by_group,
@@ -478,6 +480,7 @@ def data_for_group(data: dict, group_id: str) -> dict:
         {
             "generated_from": f"Detalle grupo {group_id}",
             "locked_group": group_id,
+            "show_audit": False,
             "month_count": len(months),
             "record_count": sum(len(rows) for rows in details.values()),
             "company_count": len({row["empresa"] for rows in details.values() for row in rows}),
@@ -652,6 +655,10 @@ canvas{max-width:100%}
 
   <section class="sec" id="sec-auditoria">
     <div class="sec-hd"><div class="sec-title">Auditoría</div><div class="sec-sub" id="auditSub">Controles sobre el mes comparación y filtros Empresa/Sede</div></div>
+    <div class="panel">
+      <div class="panel-hd"><div><div class="panel-title">Reglas auditadas</div><div class="panel-sub">Controles activos según grupo y empresa</div></div></div>
+      <div class="tw"><table><thead><tr><th>Regla</th><th>Aplicación</th><th>Validación</th></tr></thead><tbody id="auditRuleBody"></tbody></table></div>
+    </div>
     <div class="rg" id="auditGrid"></div>
     <div class="panel">
       <div class="panel-hd"><div><div class="panel-title">Personas con 0 días y haberes distintos de cero</div><div class="panel-sub">Click en una fila abre el detalle filtrado por sede</div></div></div>
@@ -746,6 +753,14 @@ const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(
 const txt=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 const rotBdg=p=>p===0?`<span class="bdg bgr">0%</span>`:p<=5?`<span class="bdg bg">${p}%</span>`:p<=10?`<span class="bdg by">${p}%</span>`:`<span class="bdg br2">${p}%</span>`;
 function label(id){return byId[id]?.label || id}
+function canAudit(){return !!DATA.metadata.show_audit}
+function applyAuditVisibility(){
+  const tab=document.querySelector('.tab[data-sec="auditoria"]'),sec=document.getElementById('sec-auditoria');
+  if(!tab||!sec) return;
+  tab.style.display=canAudit()?'':'none';
+  sec.style.display=canAudit()?'':'none';
+  if(!canAudit()&&sec.classList.contains('active')) activateTab('dashboard');
+}
 function metricOptions(){
   const core=[
     ['total_haberes','Suma Haberes'],['dotacion','Dotación'],['sueldo_liquido','Sueldo Líquido'],['sueldo_base','Sueldo Base'],
@@ -1218,7 +1233,16 @@ function auditRows(){
 function isManipPae(r){
   return String(r.cargo||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('manipulador (a) de alimentos pae');
 }
+function auditRules(){
+  return [
+    {name:'0 días trabajados con haberes',scope:'Genérica · todos los grupos',check:'Días trabajados = 0 y Suma Haberes distinto de 0'},
+    {name:'Sueldo base Manipulador(a) PAE',scope:'CRUX FOOD · cargos Manipulador (a) de Alimentos PAE',check:'Sueldo Base esperado = $539.000 × días trabajados / 30'},
+    {name:'Bono Manipuladora PAE',scope:'CRUX FOOD · cargos Manipulador (a) de Alimentos PAE',check:'Identifica personas con Bono Manipuladora PAE o Bono Manipuladora PAE I'},
+  ];
+}
 function renderAuditoria(){
+  if(!canAudit()) return;
+  auditRuleBody.innerHTML=auditRules().map(r=>`<tr><td class="tn">${r.name}</td><td>${r.scope}</td><td>${r.check}</td></tr>`).join('');
   const rows=auditRows(),manip=rows.filter(isManipPae);
   const zero=rows.filter(r=>+r.dias===0 && +r.total_haberes!==0);
   const expected=r=>Math.round(539000*Math.max(0,Math.min(+r.dias||0,30))/30);
@@ -1659,7 +1683,7 @@ function handleFileUpload(e){
   };
   reader.readAsArrayBuffer(file);
 }
-function renderAll(){renderChips();renderCompanyDivision();renderKPIs();renderTotalsHighlights();renderKpisMenu();renderComparativo();renderConcepts();renderDeviaciones();renderAuditoria();renderDownloads();renderDetail();}
+function renderAll(){applyAuditVisibility();renderChips();renderCompanyDivision();renderKPIs();renderTotalsHighlights();renderKpisMenu();renderComparativo();renderConcepts();renderDeviaciones();renderAuditoria();renderDownloads();renderDetail();}
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>activateTab(t.dataset.sec)));
 document.addEventListener('click',e=>{if(!e.target.closest?.('#detailFilterMenu')&&!e.target.closest?.('.head-filter-btn'))closeDetailFilterMenu();});
 const savedGroup=localStorage.getItem('remuGrupoSeleccionado');
@@ -1675,6 +1699,10 @@ if(!lockedGroup()) openGroupGate();
 def main() -> None:
     data = build_multi_data()
     outputs = [(OUTPUT, data)]
+    artbpo_data = dict(data)
+    artbpo_data["metadata"] = dict(data["metadata"])
+    artbpo_data["metadata"].update({"show_audit": True, "generated_from": "Detalle artbPO"})
+    outputs.append((ARTBPO_OUTPUT, artbpo_data))
     outputs.extend((path, data_for_group(data, group_id)) for group_id, path in GROUP_OUTPUTS.items())
     for path, page_data in outputs:
         html = HTML_TEMPLATE.replace("__DATA__", json.dumps(page_data, ensure_ascii=False, separators=(",", ":")))
