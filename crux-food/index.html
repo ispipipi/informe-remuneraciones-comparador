@@ -800,8 +800,26 @@ function detailSheetAoA(baseRows,compRows,base,comp){
   keys.forEach((rut,i)=>{const b=bm[rut]||{},c=cm[rut]||{},r=c.rut?c:b;rows.push([i+1,r.empresa,r.nombre,r.rut,r.sede,r.cargo,b.dias||0,c.dias||0,(c.dias||0)-(b.dias||0),b.sueldo_liquido||0,c.sueldo_liquido||0,(c.sueldo_liquido||0)-(b.sueldo_liquido||0),b.total_haberes||0,c.total_haberes||0,(c.total_haberes||0)-(b.total_haberes||0),b.sueldo_base||0,c.sueldo_base||0,(c.sueldo_base||0)-(b.sueldo_base||0)]);});
   return rows;
 }
+const avanzaMonthHeaders=['RUT','CÓDIGO','AP PATERNO','AP MATERNO','NOMBRES','CARGO','AREA','CENTRO COSTO','DÍAS TRABAJADOS','HORAS SEMANALES','HORAS NO TRABAJADAS','BASE IMP. PREVISIÓN','BASE IMP. CESANTÍA','SUELDO BASE','GRATIFICACIÓN','APORTE ASISTENCIA','HORAS EXTRAS','ASIGNACIÓN FAMILIAR','ASIGNACIÓN POR TELETRABAJO','ASIGNACIÓN SALA CUNA','ASIGNACIÓN TELEFONÍA E INTERNET','BONO','BONO ESTUDIO','BONO GESTIÓN','BONO INTERNET','BONO VAP','COLACIÓN','COMISIONES','DESGASTE HERRAMIENTA','DIFERENCIA GRATIFICACIÓN MES ANTERIOR','DIFERENCIA SUELDO BASE MES ANTERIOR','MOVILIZACIÓN','VIATICO','TOTAL HABERES','PREVIS','APV','SALUD','SALUD VOLUNTARIA','CESANTÍA','IMPUESTO','CUENTA_2','ANTICIPO DE REMUNERACIONES','CONVENIO FALP','CUENTA 2 PESOS','PRÉSTAMO EMPRESA','CRÉDITO PERSONAL CAJA LOS ANDES','PRESTAMO EMPRESA','DESCUENTO ÓPTICA','SEGURO DE VIDA CAJA LOS ANDES','TOTAL DESCUENTOS','SUELDO LÍQUIDO','SOBREGIRO'];
+function splitAvanzaName(name){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(parts.length<=2) return {pat:'',mat:'',nombres:parts.join(' ')};
+  return {pat:parts[0],mat:parts[1],nombres:parts.slice(2).join(' ')};
+}
+function avanzaMonthRow(r){
+  const n=splitAvanzaName(r.nombre),concepts=r.concepts||{},raw=r.raw||[];
+  const imponible=+(raw[8]||0),previs=+(concepts['Cotización Previsional']||0),salud=+(concepts['Cotización Salud']||0),saludVol=+(concepts['Adicional Salud']||0),cesantia=+(concepts['Seguro Cesantía']||0),impuesto=+(concepts['Impuesto Único']||0);
+  return [
+    r.rut,'F1',n.pat,n.mat,n.nombres,r.cargo||'',r.sede||'', '', +(r.dias||0), '', 0,
+    imponible, imponible, +(r.sueldo_base||0), +(r.gratificacion||concepts['Gratificación']||0), 0, +(r.hhee||concepts['Horas Extras Empresa 50%']||0),
+    0,'','','', '', '', +(concepts['Bono Gestión Trimestral']||0), '', '', +(r.colacion||concepts['Colación']||0),
+    '', '', '', '', +(r.movilizacion||concepts['Movilización']||0), '', +(r.total_haberes||0),
+    previs, 0, salud, saludVol, cesantia, impuesto, '', '', '', '', '', '', '', '', '', +(r.total_descuentos||0), +(r.sueldo_liquido||0), ''
+  ];
+}
 function monthRowsAoA(rows,month){
   const isAvanza=rows.some(r=>r.grupo==='Grupo Avanza')&&!rows.some(r=>r.grupo==='CRUX FOOD');
+  if(isAvanza) return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
   const headers=isAvanza&&DATA.metadata.avanza_headers?.length?DATA.metadata.avanza_headers:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']);
   return [headers,...rows.map(r=>{
     if(r.raw?.length) return headers.map((_,i)=>r.raw[i]??'');
