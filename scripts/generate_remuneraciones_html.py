@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import unicodedata
 from datetime import date, datetime
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -21,10 +22,6 @@ GROUP_OUTPUTS = {
 ARTBPO_OUTPUT = BASE_DIR / "artbpo" / "index.html"
 
 HEADER_ROW_INDEX = 5
-
-HABER_CONCEPT_RANGE = range(23, 86)  # 1-based Excel columns: Sueldo Base through Diferencia Colación.
-LICENCIA_COLS = (13, 14, 15, 19)
-AUSENTISMO_COLS = (13, 14, 15, 16, 17, 18, 19, 20, 21, 22)
 
 MONTH_NAMES = {
     "01": "Ene",
@@ -57,6 +54,11 @@ def num(value) -> float:
 
 def clean(value) -> str:
     return str(value or "").strip()
+
+
+def header_key(value) -> str:
+    text = unicodedata.normalize("NFD", clean(value).lower())
+    return "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
 
 
 def json_value(value):
@@ -171,8 +173,12 @@ def build_data() -> dict:
     header_index = {h: i for i, h in enumerate(headers) if h}
 
     concept_cols = []
-    for one_based in HABER_CONCEPT_RANGE:
-        idx = one_based - 1
+    concept_start = header_index.get("Sueldo Base", 22)
+    concept_end = min(
+        [i for name in ("Cotizacion AFP", "Sueldo Líquido") if (i := header_index.get(name)) is not None],
+        default=len(headers),
+    )
+    for idx in range(concept_start, concept_end):
         label = clean(headers[idx])
         if label and label not in {"Suma Haberes", "Sueldo Líquido"}:
             concept_cols.append({"idx": idx, "label": label, "type": "haber"})
@@ -186,6 +192,15 @@ def build_data() -> dict:
             label = clean(headers[idx])
             if label and label not in {"Total Rebajas"}:
                 concept_cols.append({"idx": idx, "label": label, "type": "descuento"})
+    absence_end = header_index.get("Sueldo Base", len(headers))
+    licencia_indices = [
+        idx for idx, label in enumerate(headers[:absence_end])
+        if "licencia" in header_key(label)
+    ]
+    ausentismo_indices = [
+        idx for idx, label in enumerate(headers[:absence_end])
+        if any(term in header_key(label) for term in ("licencia", "permiso", "falta"))
+    ]
 
     by_month_rows: dict[str, list[dict]] = defaultdict(list)
     concept_sums: dict[str, Counter] = defaultdict(Counter)
@@ -216,8 +231,8 @@ def build_data() -> dict:
             "total_descuentos": num(raw[header_index["Total Rebajas"]]),
             "gratificacion": num(raw[header_index["Gratificación"]]),
             "hhee": num(raw[header_index["Horas Extras Empresa 50%"]]),
-            "licencia_dias": sum(num(raw[i - 1] if i - 1 < len(raw) else 0) for i in LICENCIA_COLS),
-            "ausentismo_dias": sum(num(raw[i - 1] if i - 1 < len(raw) else 0) for i in AUSENTISMO_COLS),
+            "licencia_dias": sum(num(raw[i] if i < len(raw) else 0) for i in licencia_indices),
+            "ausentismo_dias": sum(num(raw[i] if i < len(raw) else 0) for i in ausentismo_indices),
             "movilizacion": num(raw[header_index["Movilizacion"]]),
             "colacion": num(raw[header_index["Colacion"]]),
             "bono_manip_pae": num(raw[header_index["Bono Manipuladora Pae"]]) + num(raw[header_index["Bono Manipuladora Pae I"]]),
@@ -604,7 +619,6 @@ canvas{max-width:100%}
 </div>
 <nav class="nav" id="navTabs">
   <div class="tab active" data-sec="dashboard">Dashboard</div>
-  <div class="tab" data-sec="kpis">KPIs</div>
   <div class="tab" data-sec="conceptos">Diferencia mensual</div>
   <div class="tab" data-sec="auditoria">Auditoría</div>
   <div class="tab" data-sec="descargas">Descargas</div>
@@ -633,25 +647,6 @@ canvas{max-width:100%}
     <div class="hi-grid">
       <div class="panel"><div class="panel-hd"><div><div class="panel-title">Totales del período</div><div class="panel-sub" id="totalsSub"></div></div></div><div class="tw"><table class="tot-table"><tbody id="totalsBody"></tbody></table></div></div>
       <div class="panel"><div class="panel-hd"><div><div class="panel-title">Highlights</div><div class="panel-sub">Principales señales del comparativo</div></div></div><div class="panel-body"><div class="hi-list" id="highlights"></div></div></div>
-    </div>
-  </section>
-
-  <section class="sec" id="sec-kpis">
-    <div class="sec-hd"><div class="sec-title">KPIs Operacionales</div><div class="sec-sub" id="kpiOpsSub">Rotación, ausentismo y licencias con jerarquía Empresa / Sede / Trabajador</div></div>
-    <div class="rg" id="kpiOpsGrid"></div>
-    <div class="panel">
-      <div class="panel-hd"><div><div class="panel-title">Rotación mensual</div><div class="panel-sub">Ingresos y egresos entre mes base y mes comparación</div></div></div>
-      <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th>Tipo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th></tr></thead><tbody id="kpiRotBody"></tbody></table></div>
-    </div>
-    <div class="g2">
-      <div class="panel">
-        <div class="panel-hd"><div><div class="panel-title">Ausentismo</div><div class="panel-sub">Licencias, permisos y faltas del mes comparación</div></div></div>
-        <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th class="nr">Días ausentismo</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiAusBody"></tbody></table></div>
-      </div>
-      <div class="panel">
-        <div class="panel-hd"><div><div class="panel-title">Licencias</div><div class="panel-sub">Días de licencia médica y accidente</div></div></div>
-        <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th class="nr">Días licencia</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiLicBody"></tbody></table></div>
-      </div>
     </div>
   </section>
 
@@ -718,7 +713,23 @@ canvas{max-width:100%}
 
   <section class="sec" id="sec-beta">
     <div class="sec-hd"><div class="sec-title">Beta</div><div class="sec-sub">Comparativo mensual y análisis de desviaciones</div></div>
-    <div class="panel-hd"><div><div class="panel-title">Comparativo Mensual</div><div class="panel-sub">Variación por Empresa/Sede y conceptos seleccionados</div></div></div>
+    <div class="sec-hd"><div class="sec-title">KPIs Operacionales</div><div class="sec-sub" id="kpiOpsSub">Rotación, ausentismo y licencias con jerarquía Empresa / Sede / Trabajador</div></div>
+    <div class="rg" id="kpiOpsGrid"></div>
+    <div class="panel">
+      <div class="panel-hd"><div><div class="panel-title">Rotación mensual</div><div class="panel-sub">Ingresos y egresos entre mes base y mes comparación</div></div></div>
+      <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th>Tipo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th></tr></thead><tbody id="kpiRotBody"></tbody></table></div>
+    </div>
+    <div class="g2">
+      <div class="panel">
+        <div class="panel-hd"><div><div class="panel-title">Ausentismo</div><div class="panel-sub">Licencias, permisos y faltas del mes comparación</div></div></div>
+        <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th class="nr">Días ausentismo</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiAusBody"></tbody></table></div>
+      </div>
+      <div class="panel">
+        <div class="panel-hd"><div><div class="panel-title">Licencias</div><div class="panel-sub">Días de licencia médica y accidente</div></div></div>
+        <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th class="nr">Días licencia</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiLicBody"></tbody></table></div>
+      </div>
+    </div>
+    <div class="sec-hd" style="margin-top:26px"><div class="sec-title">Comparativo Mensual</div><div class="sec-sub">Variación por Empresa/Sede y conceptos seleccionados</div></div>
     <div class="controlbar">
       <div class="ctrl"><label>Agregar columna</label><select class="fsel" id="cmpMetricAdd"></select></div>
       <button class="btn" type="button" onclick="addCompareMetric()">Agregar concepto</button>
@@ -1638,7 +1649,7 @@ function headerIndex(headers){
 function idxOf(idx,name){return idx[name]??idx[headerKey(name)];}
 function rawVal(raw,idx,name){const i=idxOf(idx,name);return i===undefined?'':raw[i];}
 function numVal(raw,idx,name){return parseNumber(rawVal(raw,idx,name));}
-function sumHeaders(raw,headers,pred){return headers.reduce((a,h,i)=>a+(pred(headerKey(h),cleanText(h))?parseNumber(raw[i]||0):0),0);}
+function sumHeaders(raw,headers,pred,end=headers.length){return headers.slice(0,end).reduce((a,h,i)=>a+(pred(headerKey(h),cleanText(h))?parseNumber(raw[i]||0):0),0);}
 function monthLabelFromPeriod(period){
   const names={'01':'Ene','02':'Feb','03':'Mar','04':'Abr','05':'May','06':'Jun','07':'Jul','08':'Ago','09':'Sep','10':'Oct','11':'Nov','12':'Dic'};
   const [y,m]=String(period).split('-');
@@ -1696,10 +1707,11 @@ function buildDataFromRows(aoa,fileName){
       const monthSums=conceptSums[period]=conceptSums[period]||{};
       monthSums[c.label]=(monthSums[c.label]||0)+v;
     });
+    const absenceEnd=idxOf(idx,'Sueldo Base')??headers.length;
     const row={_raw:headers.map((_,i)=>raw[i]??''),grupo:'CRUX FOOD',proceso:period,empresa,sede,nombre:cleanText(rawVal(raw,idx,'Nombre')),rut:cleanText(rawVal(raw,idx,'Rut')),contrato:cleanText(rawVal(raw,idx,'Contrato')),cargo:cleanText(rawVal(raw,idx,'Cargo')),
       dias:numVal(raw,idx,'Días Trabajados'),sueldo_base:numVal(raw,idx,'Sueldo Base'),total_haberes:numVal(raw,idx,'Suma Haberes'),sueldo_liquido:numVal(raw,idx,'Sueldo Líquido'),
       total_descuentos:numVal(raw,idx,'Total Rebajas'),gratificacion:numVal(raw,idx,'Gratificación'),hhee:numVal(raw,idx,'Horas Extras Empresa 50%'),
-      licencia_dias:sumHeaders(raw,headers,k=>k.includes('licencia')),ausentismo_dias:sumHeaders(raw,headers,k=>k.includes('licencia')||k.includes('permiso')||k.includes('falta')),
+      licencia_dias:sumHeaders(raw,headers,k=>k.includes('licencia'),absenceEnd),ausentismo_dias:sumHeaders(raw,headers,k=>k.includes('licencia')||k.includes('permiso')||k.includes('falta'),absenceEnd),
       movilizacion:numVal(raw,idx,'Movilizacion'),colacion:numVal(raw,idx,'Colacion'),
       bono_manip_pae:numVal(raw,idx,'Bono Manipuladora Pae')+numVal(raw,idx,'Bono Manipuladora Pae I'),concept_values:conceptValues};
     (byMonth[period]=byMonth[period]||[]).push(row); companies.add(empresa);
