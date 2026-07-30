@@ -48,15 +48,18 @@ body{background:radial-gradient(circle at 18% -10%,rgba(31,94,255,.08),transpare
 .exec-card.primary .exec-label,.exec-card.primary .exec-sub{color:rgba(255,255,255,.72)}.exec-card.primary .exec-delta{color:#fff}
 .exec-label{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:7px}.exec-value{font-family:var(--m);font-size:28px;font-weight:800;line-height:1;letter-spacing:-.02em}.exec-sub{font-size:12px;color:var(--text3);margin-top:7px}.exec-delta{font-family:var(--m);font-size:12px;font-weight:800;margin-top:10px}
 @media(max-width:1180px){.global-filters{grid-template-columns:repeat(3,1fr)}}@media(max-width:1040px){.exec-summary{grid-template-columns:1fr 1fr}.nav{top:0;position:relative}.insight-strip{align-items:flex-start;flex-direction:column}.insight-meta{white-space:normal}}@media(max-width:640px){.exec-summary{grid-template-columns:1fr}.global-filters{grid-template-columns:1fr}.header{padding:0 16px}.nav{padding:8px 16px}.main{padding:18px 16px}}
-.kpi-grid{display:grid;grid-template-columns:1fr 1.35fr 1fr;gap:14px;margin-bottom:18px}
-.kpi-section{background:rgba(255,255,255,.88);border:1px solid rgba(219,226,237,.95);border-radius:var(--r);box-shadow:0 8px 24px rgba(15,23,42,.045);padding:13px}
-.kpi-section-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}.kpi-section-title{font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.55px;color:var(--ink)}.kpi-section-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.kpi-grid{display:grid;grid-template-columns:.92fr 1.24fr .92fr;gap:12px;margin-bottom:16px;align-items:start}
+.kpi-section{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(248,251,255,.94));border:1px solid rgba(219,226,237,.95);border-radius:10px;box-shadow:0 14px 34px rgba(15,23,42,.065);padding:12px;overflow:hidden;position:relative}
+.kpi-section::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,rgba(31,94,255,.55),rgba(42,157,124,.45),rgba(214,117,0,.42))}
+.kpi-section-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}.kpi-section-head{display:flex;align-items:center;gap:9px;min-width:0}.kpi-section-ico{width:30px;height:30px;border-radius:9px;background:#eef4ff;color:var(--blue);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 0 0 1px rgba(31,94,255,.12);flex-shrink:0}.kpi-section-ico svg{width:16px;height:16px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.kpi-section-title{font-size:11.5px;font-weight:900;text-transform:uppercase;letter-spacing:.55px;color:var(--ink);line-height:1.1}.kpi-section-sub{font-size:10.8px;color:var(--text3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi-stack{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kpi-section.wide .kpi-stack{grid-template-columns:repeat(3,1fr)}
-.kpi{background:linear-gradient(180deg,#fff,#fbfcff);border:1px solid var(--border);border-radius:7px;padding:12px 13px;box-shadow:var(--sh0);transition:box-shadow .15s,transform .15s,border-color .15s;border-left:3px solid var(--blue);border-top:none;text-align:left;cursor:pointer;width:100%;font-family:var(--f)}
-.kpi:hover{box-shadow:var(--sh1);transform:translateY(-1px);border-color:#b9c7dd}.kpi.active{box-shadow:0 0 0 2px rgba(31,94,255,.14),var(--sh1);background:#f8fbff}.kpi-lbl{font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}.kpi-val{font-size:20px;font-weight:850;line-height:1;margin-bottom:6px;font-family:var(--m)}
-.kpi-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px}.kpi-prev{color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kpi-dif{font-weight:800;font-family:var(--m);font-size:11px;white-space:nowrap}.dp{color:var(--green)}.dn{color:var(--red)}.d0{color:var(--text3)}
+.kpi{background:rgba(255,255,255,.94);border:1px solid rgba(219,226,237,.95);border-radius:8px;padding:10px 11px;box-shadow:0 4px 12px rgba(15,23,42,.035);transition:box-shadow .15s,transform .15s,border-color .15s,background .15s;text-align:left;cursor:pointer;width:100%;font-family:var(--f);min-height:82px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--kpi-color,var(--blue))}.kpi:hover{box-shadow:0 12px 26px rgba(15,23,42,.09);transform:translateY(-1px);border-color:#b9c7dd;background:#fff}.kpi.active{box-shadow:0 0 0 2px rgba(31,94,255,.15),0 12px 26px rgba(15,23,42,.08);background:#f8fbff}
+.kpi-top{display:flex;align-items:center;justify-content:space-between;gap:7px}.kpi-lbl{font-size:9.6px;font-weight:900;color:var(--text3);text-transform:uppercase;letter-spacing:.48px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kpi-ico{width:24px;height:24px;border-radius:8px;background:#f3f7ff;color:var(--kpi-color,var(--blue));display:flex;align-items:center;justify-content:center;flex-shrink:0}.kpi-ico svg{width:14px;height:14px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}.kpi-val{font-size:20px;font-weight:900;line-height:1;font-family:var(--m);color:var(--kpi-color,var(--blue));letter-spacing:-.01em}
+.kpi-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10.8px}.kpi-prev{color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kpi-dif{font-weight:900;font-family:var(--m);font-size:10.8px;white-space:nowrap}.dp{color:var(--green)}.dn{color:var(--red)}.d0{color:var(--text3)}
 .kpi-detail-name{display:flex;flex-direction:column;gap:1px}.kpi-detail-name span{font-family:var(--m);font-size:10.5px;color:var(--text3);font-weight:700}
-@media(max-width:1180px){.kpi-grid{grid-template-columns:1fr}.kpi-section.wide .kpi-stack{grid-template-columns:1fr 1fr}}@media(max-width:640px){.kpi-stack,.kpi-section.wide .kpi-stack{grid-template-columns:1fr}}
+@media(max-width:1320px){.kpi-grid{grid-template-columns:1fr}.kpi-section.wide .kpi-stack{grid-template-columns:repeat(3,1fr)}}@media(max-width:760px){.kpi-stack,.kpi-section.wide .kpi-stack{grid-template-columns:1fr 1fr}}@media(max-width:540px){.kpi-stack,.kpi-section.wide .kpi-stack{grid-template-columns:1fr}.kpi-section-sub{white-space:normal}}
 .panel{background:var(--surface);border:1px solid rgba(219,226,237,.95);border-radius:var(--r);box-shadow:0 8px 24px rgba(15,23,42,.045);margin-bottom:18px;overflow:hidden}.panel-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:linear-gradient(180deg,#fff,#fbfcff)}.panel-title{font-size:13.5px;font-weight:850}.panel-sub{font-size:11.5px;color:var(--text3);margin-top:2px}.panel-body{padding:18px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px}@media(max-width:960px){.g2,.g3{grid-template-columns:1fr}.h-actions{margin-left:0}}
 .bc{display:flex;flex-direction:column;gap:8px}.br{display:flex;align-items:center;gap:8px}.bl{width:190px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bt{flex:1;height:22px;background:var(--surface2);border-radius:5px;overflow:hidden}.bf{height:100%;border-radius:5px;display:flex;align-items:center;padding:0 8px;min-width:2px}.bf span{font-size:10.5px;font-weight:600;color:#fff;white-space:nowrap;font-family:var(--m)}.ba{width:80px;font-size:11px;color:var(--text3);font-family:var(--m)}
@@ -404,20 +407,40 @@ function renderKPIs(){
   const f=getFilteredKpis(state.base),m=getFilteredKpis(state.comp);
   const mov=movementStats();
   renderExecutiveSummary(f,m,mov);
+  const icons={
+    users:'<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    money:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 12h.01M18 12h.01"/></svg>',
+    trend:'<svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>',
+    dotacion:'<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
+    fte:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    ingresos:'<svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>',
+    egresos:'<svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>',
+    total_haberes:'<svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M8 17V9"/><path d="M12 17V7"/><path d="M16 17v-4"/><path d="M20 17V6"/></svg>',
+    sueldo_liquido:'<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+    sueldo_base:'<svg viewBox="0 0 24 24"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg>',
+    total_descuentos:'<svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+    gratificacion:'<svg viewBox="0 0 24 24"><path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 1 1 2.1-3.86L12 7Z"/><path d="M12 7h4.5a2.5 2.5 0 1 0-2.1-3.86L12 7Z"/></svg>',
+    movilizacion:'<svg viewBox="0 0 24 24"><path d="M5 17h14l-1.5-7h-11L5 17Z"/><path d="M7 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/><path d="M17 17a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/><path d="M7 10V6h10v4"/></svg>',
+    sb_promedio:'<svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M8 17V9"/><path d="M12 17V7"/><path d="M16 17v-4"/><path d="M20 17V6"/></svg>',
+    liq_promedio:'<svg viewBox="0 0 24 24"><path d="M3 12h18"/><path d="M7 16h10"/><path d="M10 8h4"/></svg>',
+    dias_prom:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+    menos30:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>',
+    pct_fte:'<svg viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7" cy="7" r="2"/><circle cx="17" cy="17" r="2"/></svg>'
+  };
   const card=(t,k,v,prev,d,color)=>{
     const isMovement=k==='ingresos'||k==='egresos';
     const delta=k.includes('pct')?`${sign(d)}${d.toFixed(1)}pp`:isMovement?`${N(v)} personas`:`${sign(d)}${fmt(k,d)}`;
     const value=k.includes('pct')?P(v):fmt(k,v);
-    return `<button class="kpi ${state.dashboardKpiFocus===k?'active':''}" onclick="selectDashboardKpi('${k}')" style="border-left-color:${color}"><div class="kpi-lbl">${t}</div><div class="kpi-val" style="color:${color}">${value}</div><div class="kpi-foot"><span class="kpi-prev">${isMovement?`${label(state.base)} → ${label(state.comp)}`:`${label(state.base)}: ${k.includes('pct')?P(prev):fmt(k,prev)}`}</span><span class="kpi-dif ${isMovement?'':cls(d)}" style="${isMovement?`color:${color}`:''}">${delta}</span></div></button>`;
+    return `<button class="kpi ${state.dashboardKpiFocus===k?'active':''}" onclick="selectDashboardKpi('${k}')" style="--kpi-color:${color}"><div class="kpi-top"><div class="kpi-lbl">${t}</div><span class="kpi-ico">${icons[k]||icons.trend}</span></div><div class="kpi-val">${value}</div><div class="kpi-foot"><span class="kpi-prev">${isMovement?`${label(state.base)} → ${label(state.comp)}`:`${label(state.base)}: ${k.includes('pct')?P(prev):fmt(k,prev)}`}</span><span class="kpi-dif ${isMovement?'':cls(d)}" style="${isMovement?`color:${color}`:''}">${delta}</span></div></button>`;
   };
   kpiGrid.innerHTML=[
-    `<div class="kpi-section"><div class="kpi-section-hd"><div><div class="kpi-section-title">Personas</div><div class="kpi-section-sub">Dotación, FTE y movimientos</div></div></div><div class="kpi-stack">${[
+    `<div class="kpi-section"><div class="kpi-section-hd"><div class="kpi-section-head"><span class="kpi-section-ico">${icons.users}</span><div><div class="kpi-section-title">Personas</div><div class="kpi-section-sub">Dotación, FTE y movimientos</div></div></div></div><div class="kpi-stack">${[
       card('Dotación','dotacion',m.dotacion,f.dotacion,m.dotacion-f.dotacion,'var(--blue)'),
       card('FTE','fte',m.fte,f.fte,m.fte-f.fte,'var(--green)'),
       card('Ingresos','ingresos',mov.ingresos,0,mov.ingresos,'var(--green)'),
       card('Egresos','egresos',mov.egresos,0,mov.egresos,'var(--red)')
     ].join('')}</div></div>`,
-    `<div class="kpi-section wide"><div class="kpi-section-hd"><div><div class="kpi-section-title">Remuneraciones</div><div class="kpi-section-sub">Totales y conceptos principales</div></div></div><div class="kpi-stack">${[
+    `<div class="kpi-section wide"><div class="kpi-section-hd"><div class="kpi-section-head"><span class="kpi-section-ico">${icons.money}</span><div><div class="kpi-section-title">Remuneraciones</div><div class="kpi-section-sub">Totales y conceptos principales</div></div></div></div><div class="kpi-stack">${[
       card('Suma Haberes','total_haberes',m.total_haberes,f.total_haberes,m.total_haberes-f.total_haberes,'var(--purple)'),
       card('Sueldo Líquido','sueldo_liquido',m.sueldo_liquido,f.sueldo_liquido,m.sueldo_liquido-f.sueldo_liquido,'var(--green)'),
       card('Sueldo Base','sueldo_base',m.sueldo_base,f.sueldo_base,m.sueldo_base-f.sueldo_base,'var(--blue)'),
@@ -425,7 +448,7 @@ function renderKPIs(){
       card('Gratificación','gratificacion',m.gratificacion,f.gratificacion,m.gratificacion-f.gratificacion,'var(--amber)'),
       card('Movilización','movilizacion',m.movilizacion,f.movilizacion,m.movilizacion-f.movilizacion,'var(--purple)')
     ].join('')}</div></div>`,
-    `<div class="kpi-section"><div class="kpi-section-hd"><div><div class="kpi-section-title">Promedios</div><div class="kpi-section-sub">Productividad y asistencia</div></div></div><div class="kpi-stack">${[
+    `<div class="kpi-section"><div class="kpi-section-hd"><div class="kpi-section-head"><span class="kpi-section-ico">${icons.trend}</span><div><div class="kpi-section-title">Promedios</div><div class="kpi-section-sub">Productividad y asistencia</div></div></div></div><div class="kpi-stack">${[
       card('Sueldo Base Prom.','sb_promedio',m.sb_promedio,f.sb_promedio,m.sb_promedio-f.sb_promedio,'var(--blue)'),
       card('Líquido Prom.','liq_promedio',m.liq_promedio,f.liq_promedio,m.liq_promedio-f.liq_promedio,'var(--green)'),
       card('Días Prom.','dias_prom',m.dias_prom,f.dias_prom,m.dias_prom-f.dias_prom,'var(--amber)'),
