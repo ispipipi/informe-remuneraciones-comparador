@@ -48,10 +48,15 @@ body{background:radial-gradient(circle at 18% -10%,rgba(31,94,255,.08),transpare
 .exec-card.primary .exec-label,.exec-card.primary .exec-sub{color:rgba(255,255,255,.72)}.exec-card.primary .exec-delta{color:#fff}
 .exec-label{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:7px}.exec-value{font-family:var(--m);font-size:28px;font-weight:800;line-height:1;letter-spacing:-.02em}.exec-sub{font-size:12px;color:var(--text3);margin-top:7px}.exec-delta{font-family:var(--m);font-size:12px;font-weight:800;margin-top:10px}
 @media(max-width:1180px){.global-filters{grid-template-columns:repeat(3,1fr)}}@media(max-width:1040px){.exec-summary{grid-template-columns:1fr 1fr}.nav{top:0;position:relative}.insight-strip{align-items:flex-start;flex-direction:column}.insight-meta{white-space:normal}}@media(max-width:640px){.exec-summary{grid-template-columns:1fr}.global-filters{grid-template-columns:1fr}.header{padding:0 16px}.nav{padding:8px 16px}.main{padding:18px 16px}}
-.kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:11px;margin-bottom:22px}
-.kpi{background:linear-gradient(180deg,#fff,#fbfcff);border:1px solid var(--border);border-radius:var(--r);padding:15px 16px;box-shadow:var(--sh0);transition:box-shadow .15s,transform .15s;border-top:3px solid var(--blue)}
-.kpi:hover{box-shadow:var(--sh1);transform:translateY(-1px)}.kpi-lbl{font-size:10.5px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}.kpi-val{font-size:21px;font-weight:700;line-height:1;margin-bottom:5px;font-family:var(--m)}
-.kpi-foot{display:flex;align-items:center;justify-content:space-between;font-size:11px}.kpi-prev{color:var(--text3)}.kpi-dif{font-weight:600;font-family:var(--m);font-size:11px}.dp{color:var(--green)}.dn{color:var(--red)}.d0{color:var(--text3)}
+.kpi-grid{display:grid;grid-template-columns:1fr 1.35fr 1fr;gap:14px;margin-bottom:18px}
+.kpi-section{background:rgba(255,255,255,.88);border:1px solid rgba(219,226,237,.95);border-radius:var(--r);box-shadow:0 8px 24px rgba(15,23,42,.045);padding:13px}
+.kpi-section-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}.kpi-section-title{font-size:12px;font-weight:850;text-transform:uppercase;letter-spacing:.55px;color:var(--ink)}.kpi-section-sub{font-size:11px;color:var(--text3);margin-top:1px}
+.kpi-stack{display:grid;grid-template-columns:1fr 1fr;gap:8px}.kpi-section.wide .kpi-stack{grid-template-columns:repeat(3,1fr)}
+.kpi{background:linear-gradient(180deg,#fff,#fbfcff);border:1px solid var(--border);border-radius:7px;padding:12px 13px;box-shadow:var(--sh0);transition:box-shadow .15s,transform .15s,border-color .15s;border-left:3px solid var(--blue);border-top:none;text-align:left;cursor:pointer;width:100%;font-family:var(--f)}
+.kpi:hover{box-shadow:var(--sh1);transform:translateY(-1px);border-color:#b9c7dd}.kpi.active{box-shadow:0 0 0 2px rgba(31,94,255,.14),var(--sh1);background:#f8fbff}.kpi-lbl{font-size:10px;font-weight:800;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}.kpi-val{font-size:20px;font-weight:850;line-height:1;margin-bottom:6px;font-family:var(--m)}
+.kpi-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px}.kpi-prev{color:var(--text3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.kpi-dif{font-weight:800;font-family:var(--m);font-size:11px;white-space:nowrap}.dp{color:var(--green)}.dn{color:var(--red)}.d0{color:var(--text3)}
+.kpi-detail-name{display:flex;flex-direction:column;gap:1px}.kpi-detail-name span{font-family:var(--m);font-size:10.5px;color:var(--text3);font-weight:700}
+@media(max-width:1180px){.kpi-grid{grid-template-columns:1fr}.kpi-section.wide .kpi-stack{grid-template-columns:1fr 1fr}}@media(max-width:640px){.kpi-stack,.kpi-section.wide .kpi-stack{grid-template-columns:1fr}}
 .panel{background:var(--surface);border:1px solid rgba(219,226,237,.95);border-radius:var(--r);box-shadow:0 8px 24px rgba(15,23,42,.045);margin-bottom:18px;overflow:hidden}.panel-hd{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:10px;background:linear-gradient(180deg,#fff,#fbfcff)}.panel-title{font-size:13.5px;font-weight:850}.panel-sub{font-size:11.5px;color:var(--text3);margin-top:2px}.panel-body{padding:18px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px}.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:18px}@media(max-width:960px){.g2,.g3{grid-template-columns:1fr}.h-actions{margin-left:0}}
 .bc{display:flex;flex-direction:column;gap:8px}.br{display:flex;align-items:center;gap:8px}.bl{width:190px;font-size:12px;color:var(--text2);text-align:right;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.bt{flex:1;height:22px;background:var(--surface2);border-radius:5px;overflow:hidden}.bf{height:100%;border-radius:5px;display:flex;align-items:center;padding:0 8px;min-width:2px}.bf span{font-size:10.5px;font-weight:600;color:#fff;white-space:nowrap;font-family:var(--m)}.ba{width:80px;font-size:11px;color:var(--text3);font-family:var(--m)}
@@ -116,6 +121,10 @@ canvas{max-width:100%}
       <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede</th><th class="nr">Dotación</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th><th class="nr">Sueldo Líquido</th><th class="nr">Sueldo Base</th><th class="nr">Δ Haberes</th></tr></thead><tbody id="companyDivisionBody"></tbody></table></div>
     </div>
     <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="panel" id="dashboardKpiPanel">
+      <div class="panel-hd"><div><div class="panel-title" id="dashboardKpiTitle">Detalle KPI</div><div class="panel-sub" id="dashboardKpiSub"></div></div></div>
+      <div class="tw sy"><table><thead><tr><th>Empresa</th><th>Sede</th><th>Trabajador</th><th>Cargo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr" id="dashboardKpiMetricHead">Valor</th></tr></thead><tbody id="dashboardKpiBody"></tbody></table></div>
+    </div>
     <div class="hi-grid">
       <div class="panel"><div class="panel-hd"><div><div class="panel-title">Totales del período</div><div class="panel-sub" id="totalsSub"></div></div></div><div class="tw"><table class="tot-table"><tbody id="totalsBody"></tbody></table></div></div>
       <div class="panel"><div class="panel-hd"><div><div class="panel-title">Highlights</div><div class="panel-sub">Principales señales del comparativo</div></div></div><div class="panel-body"><div class="hi-list" id="highlights"></div></div></div>
@@ -234,7 +243,7 @@ DATA=ensureGroups(DATA);
 const groupMonths=g=>(DATA.months_by_group?.[g]?.length?DATA.months_by_group[g]:DATA.months);
 const defaultGroup=DATA.group_options[0]?.id||'CRUX FOOD';
 const defaultMonths=groupMonths(defaultGroup);
-const state = {grupo:defaultGroup, base: defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', comp: defaultMonths.at(-1)?.id||defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', empresa:'', sede:'', metric:'total_haberes', compareMetrics:['total_haberes','sueldo_liquido'], expandedCompanies:{}, expandedKpiRot:{}, expandedKpiAus:{}, expandedKpiLic:{}, kpiFocus:'', expandedDiffConcepts:{}, expandedDiffCompanies:{}, expandedDiffSedes:{}, conceptLimit:'15', conceptSort:'abs', conceptSearch:'', selectedConcept:'', detailFilters:{}};
+const state = {grupo:defaultGroup, base: defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', comp: defaultMonths.at(-1)?.id||defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', empresa:'', sede:'', metric:'total_haberes', compareMetrics:['total_haberes','sueldo_liquido'], dashboardKpiFocus:'total_haberes', expandedCompanies:{}, expandedKpiRot:{}, expandedKpiAus:{}, expandedKpiLic:{}, kpiFocus:'', expandedDiffConcepts:{}, expandedDiffCompanies:{}, expandedDiffSedes:{}, conceptLimit:'15', conceptSort:'abs', conceptSearch:'', selectedConcept:'', detailFilters:{}};
 let byId = Object.fromEntries(DATA.months.map(m=>[m.id,m]));
 let detailFilterTimer = null;
 let detailFilterKey = '';
@@ -267,7 +276,14 @@ function metricOptions(){
   const conceptOptions=DATA.concept_options.map(c=>[`concept::${c}`,`Concepto: ${c}`]);
   return [...core,...conceptOptions];
 }
-function metricName(key){return Object.fromEntries(metricOptions())[key]||key}
+const metricLabels={
+  dotacion:'Dotación',fte:'FTE',ingresos:'Ingresos',egresos:'Egresos',total_haberes:'Suma Haberes',
+  sueldo_liquido:'Sueldo Líquido',sueldo_base:'Sueldo Base',total_descuentos:'Descuentos',
+  gratificacion:'Gratificación',movilizacion:'Movilización',colacion:'Colación',hhee:'Horas Extras',
+  sb_promedio:'Sueldo Base Prom.',liq_promedio:'Líquido Prom.',dias_prom:'Días Prom.',
+  menos30:'Parciales',pct_fte:'% FTE'
+};
+function metricName(key){return metricLabels[key]||Object.fromEntries(metricOptions())[key]||key}
 function isConceptMetric(key=state.metric){return key.startsWith('concept::')}
 function conceptName(key=state.metric){return key.replace('concept::','')}
 function filterLabel(){return [state.grupo||'Todos los grupos',state.empresa||'Todas las empresas',state.sede||'Todas las sedes'].join(' · ')}
@@ -316,7 +332,7 @@ function resetForGroup(grupo){
   const ms=groupMonths(state.grupo);
   state.base=ms.at(-2)?.id||ms[0]?.id||'';
   state.comp=ms.at(-1)?.id||state.base;
-  state.empresa='';state.sede='';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.detailFilters={};
+  state.empresa='';state.sede='';state.dashboardKpiFocus='total_haberes';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.detailFilters={};
 }
 function groupStats(gid){
   const months=groupMonths(gid),last=months.at(-1)?.id;
@@ -388,29 +404,70 @@ function renderKPIs(){
   const f=getFilteredKpis(state.base),m=getFilteredKpis(state.comp);
   const mov=movementStats();
   renderExecutiveSummary(f,m,mov);
-  const cards=[
-    ['Dotación','dotacion',m.dotacion,f.dotacion,m.dotacion-f.dotacion,'var(--blue)'],
-    ['FTE','fte',m.fte,f.fte,m.fte-f.fte,'var(--green)'],
-    ['Ingresos Mes','ingresos',mov.ingresos,0,mov.ingresos,'var(--green)'],
-    ['Egresos Mes','egresos',mov.egresos,0,mov.egresos,'var(--red)'],
-    ['Suma Haberes','total_haberes',m.total_haberes,f.total_haberes,m.total_haberes-f.total_haberes,'var(--purple)'],
-    ['Sueldo Líquido','sueldo_liquido',m.sueldo_liquido,f.sueldo_liquido,m.sueldo_liquido-f.sueldo_liquido,'var(--green)'],
-    ['Sueldo Base','sueldo_base',m.sueldo_base,f.sueldo_base,m.sueldo_base-f.sueldo_base,'var(--blue)'],
-    ['Descuentos','total_descuentos',m.total_descuentos,f.total_descuentos,m.total_descuentos-f.total_descuentos,'var(--red)'],
-    ['Gratificación','gratificacion',m.gratificacion,f.gratificacion,m.gratificacion-f.gratificacion,'var(--amber)'],
-    ['Movilización','movilizacion',m.movilizacion,f.movilizacion,m.movilizacion-f.movilizacion,'var(--purple)'],
-    ['Sueldo Base Prom.','sb_promedio',m.sb_promedio,f.sb_promedio,m.sb_promedio-f.sb_promedio,'var(--blue)'],
-    ['Líquido Prom.','liq_promedio',m.liq_promedio,f.liq_promedio,m.liq_promedio-f.liq_promedio,'var(--green)'],
-    ['Días Prom.','dias_prom',m.dias_prom,f.dias_prom,m.dias_prom-f.dias_prom,'var(--amber)'],
-    ['Parciales','menos30',m.menos30,f.menos30,m.menos30-f.menos30,'var(--amber)'],
-    ['% FTE','pct_fte',m.pct_fte,f.pct_fte,m.pct_fte-f.pct_fte,'var(--green)'],
-  ];
-  kpiGrid.innerHTML=cards.map(c=>{
-    const [t,k,v,prev,d,color]=c;
+  const card=(t,k,v,prev,d,color)=>{
     const isMovement=k==='ingresos'||k==='egresos';
-    const delta=k.includes('pct')?`${sign(d)}${d.toFixed(1)}pp`:(k==='ingresos'||k==='egresos')?`${N(v)} personas`:`${sign(d)}${fmt(k,d)}`;
-    return `<div class="kpi" style="border-top-color:${color}"><div class="kpi-lbl">${t}</div><div class="kpi-val" style="color:${color}">${k.includes('pct')?P(v):fmt(k,v)}</div><div class="kpi-foot"><span class="kpi-prev">${isMovement?`${label(state.base)} → ${label(state.comp)}`:`${label(state.base)}: ${k.includes('pct')?P(prev):fmt(k,prev)}`}</span><span class="kpi-dif ${isMovement?'':cls(d)}" style="${isMovement?`color:${color}`:''}">${delta}</span></div></div>`;
-  }).join('');
+    const delta=k.includes('pct')?`${sign(d)}${d.toFixed(1)}pp`:isMovement?`${N(v)} personas`:`${sign(d)}${fmt(k,d)}`;
+    const value=k.includes('pct')?P(v):fmt(k,v);
+    return `<button class="kpi ${state.dashboardKpiFocus===k?'active':''}" onclick="selectDashboardKpi('${k}')" style="border-left-color:${color}"><div class="kpi-lbl">${t}</div><div class="kpi-val" style="color:${color}">${value}</div><div class="kpi-foot"><span class="kpi-prev">${isMovement?`${label(state.base)} → ${label(state.comp)}`:`${label(state.base)}: ${k.includes('pct')?P(prev):fmt(k,prev)}`}</span><span class="kpi-dif ${isMovement?'':cls(d)}" style="${isMovement?`color:${color}`:''}">${delta}</span></div></button>`;
+  };
+  kpiGrid.innerHTML=[
+    `<div class="kpi-section"><div class="kpi-section-hd"><div><div class="kpi-section-title">Personas</div><div class="kpi-section-sub">Dotación, FTE y movimientos</div></div></div><div class="kpi-stack">${[
+      card('Dotación','dotacion',m.dotacion,f.dotacion,m.dotacion-f.dotacion,'var(--blue)'),
+      card('FTE','fte',m.fte,f.fte,m.fte-f.fte,'var(--green)'),
+      card('Ingresos','ingresos',mov.ingresos,0,mov.ingresos,'var(--green)'),
+      card('Egresos','egresos',mov.egresos,0,mov.egresos,'var(--red)')
+    ].join('')}</div></div>`,
+    `<div class="kpi-section wide"><div class="kpi-section-hd"><div><div class="kpi-section-title">Remuneraciones</div><div class="kpi-section-sub">Totales y conceptos principales</div></div></div><div class="kpi-stack">${[
+      card('Suma Haberes','total_haberes',m.total_haberes,f.total_haberes,m.total_haberes-f.total_haberes,'var(--purple)'),
+      card('Sueldo Líquido','sueldo_liquido',m.sueldo_liquido,f.sueldo_liquido,m.sueldo_liquido-f.sueldo_liquido,'var(--green)'),
+      card('Sueldo Base','sueldo_base',m.sueldo_base,f.sueldo_base,m.sueldo_base-f.sueldo_base,'var(--blue)'),
+      card('Descuentos','total_descuentos',m.total_descuentos,f.total_descuentos,m.total_descuentos-f.total_descuentos,'var(--red)'),
+      card('Gratificación','gratificacion',m.gratificacion,f.gratificacion,m.gratificacion-f.gratificacion,'var(--amber)'),
+      card('Movilización','movilizacion',m.movilizacion,f.movilizacion,m.movilizacion-f.movilizacion,'var(--purple)')
+    ].join('')}</div></div>`,
+    `<div class="kpi-section"><div class="kpi-section-hd"><div><div class="kpi-section-title">Promedios</div><div class="kpi-section-sub">Productividad y asistencia</div></div></div><div class="kpi-stack">${[
+      card('Sueldo Base Prom.','sb_promedio',m.sb_promedio,f.sb_promedio,m.sb_promedio-f.sb_promedio,'var(--blue)'),
+      card('Líquido Prom.','liq_promedio',m.liq_promedio,f.liq_promedio,m.liq_promedio-f.liq_promedio,'var(--green)'),
+      card('Días Prom.','dias_prom',m.dias_prom,f.dias_prom,m.dias_prom-f.dias_prom,'var(--amber)'),
+      card('Parciales','menos30',m.menos30,f.menos30,m.menos30-f.menos30,'var(--amber)'),
+      card('% FTE','pct_fte',m.pct_fte,f.pct_fte,m.pct_fte-f.pct_fte,'var(--green)')
+    ].join('')}</div></div>`,
+  ].join('');
+  renderDashboardKpiDetail();
+}
+function selectDashboardKpi(key){
+  state.dashboardKpiFocus=key;
+  renderKPIs();
+  dashboardKpiPanel?.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+function dashboardKpiDetailRows(key){
+  const filter=r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede);
+  const base=(DATA.details[state.base]||[]).filter(filter),comp=(DATA.details[state.comp]||[]).filter(filter),bm=Object.fromEntries(base.map(r=>[r.rut,r])),cm=Object.fromEntries(comp.map(r=>[r.rut,r]));
+  if(key==='ingresos') return comp.filter(r=>!bm[r.rut]).map(r=>({...r,detailValue:r.total_haberes,detailLabel:'Suma Haberes'})).sort((a,b)=>b.detailValue-a.detailValue);
+  if(key==='egresos') return base.filter(r=>!cm[r.rut]).map(r=>({...r,detailValue:r.total_haberes,detailLabel:'Suma Haberes'})).sort((a,b)=>b.detailValue-a.detailValue);
+  const rows=comp.map(r=>{
+    let value=0,labelTxt=metricName(key);
+    if(key==='dotacion') value=1;
+    else if(key==='fte') value=+(r.fte||(+r.dias||0)/30||0);
+    else if(key==='dias_prom') value=+(r.dias||0);
+    else if(key==='menos30') value=+(r.dias||0);
+    else if(key==='pct_fte') value=+(r.fte||(+r.dias||0)/30||0);
+    else value=+(r[key]||0);
+    return {...r,detailValue:value,detailLabel:labelTxt};
+  });
+  const filtered=key==='menos30'?rows.filter(r=>r.dias>0&&r.dias<30):rows.filter(r=>key==='dotacion'||key==='dias_prom'||key==='pct_fte'||r.detailValue!==0);
+  return filtered.sort((a,b)=>(+b.detailValue||0)-(+a.detailValue||0));
+}
+function renderDashboardKpiDetail(){
+  const key=state.dashboardKpiFocus||'total_haberes',rows=dashboardKpiDetailRows(key),isMoney=moneyMetrics.has(key),isPct=key==='pct_fte',isCount=key==='dotacion'||key==='menos30'||key==='ingresos'||key==='egresos';
+  dashboardKpiTitle.textContent=`Detalle · ${metricName(key)}`;
+  dashboardKpiSub.textContent=`${N(rows.length)} registros · ${label(key==='egresos'?state.base:state.comp)} · ${filterLabel()}`;
+  dashboardKpiMetricHead.textContent=metricName(key);
+  dashboardKpiBody.innerHTML=rows.slice(0,80).map(r=>{
+    const fte=+(r.fte||(+r.dias||0)/30||0);
+    const val=isMoney?K(r.detailValue):isPct?`${(fte*100).toFixed(1)}%`:isCount?N(r.detailValue):N(r.detailValue);
+    return `<tr class="clickable" onclick="goWorkerDetail('${key==='egresos'?state.base:state.comp}','${esc(r.rut)}')"><td class="tn">${txt(r.empresa)}</td><td><span class="bdg bb">${txt(r.sede)}</span></td><td><div class="kpi-detail-name"><b>${txt(r.nombre)}</b><span>${txt(r.rut)}</span></div></td><td>${txt(r.cargo)}</td><td class="nr">${N(r.dias)}</td><td class="nr">${fte.toFixed(2)}</td><td class="nr">${val}</td></tr>`;
+  }).join('') || `<tr><td colspan="7" style="color:var(--text3);padding:18px">Sin registros para este KPI.</td></tr>`;
 }
 function renderExecutiveSummary(f,m,mov){
   if(!document.getElementById('executiveSummary')) return;
