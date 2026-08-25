@@ -12,4 +12,6 @@ Pagina estatica publicada en GitHub Pages.
 
 Cuando termine la accion, el mismo link de GitHub Pages mostrara los datos nuevos para todos.
 
-El archivo de carga debe tener las cabeceras en la fila 5 y la hoja `Detalle`.
+El archivo de carga interno debe tener las cabeceras en la fila 5 y la hoja `Detalle`.
+
+Para Grupo Avanza también se reconoce directamente el libro de remuneraciones con la hoja `Libro de remu CE` y sus cabeceras en la fila 6. La aplicación detecta ese formato automáticamente al seleccionarlo desde `Cargar archivo`.

@@ -1764,8 +1764,69 @@ function groupConceptsJs(rows,conceptCols){
   });
   return grouped;
 }
-function buildDataFromRows(aoa,fileName){
-  const headerRow=aoa.findIndex(row=>row&&headerKey(row[0])==='empresa'&&headerKey(row[3])==='proceso');
+function normalizeAvanzaPeriod(value){
+  const text=cleanText(value);
+  let match=text.match(/^(\\d{4})[-/](\\d{1,2})/);
+  if(match) return `${match[1]}-${String(match[2]).padStart(2,'0')}`;
+  match=text.match(/^(\\d{1,2})[/-](\\d{1,2})[/-](\\d{4})/);
+  if(match) return `${match[3]}-${String(match[2]).padStart(2,'0')}`;
+  return text.slice(0,7);
+}
+function isAvanzaBook(aoa){
+  return aoa.some(row=>row?.some(value=>headerKey(value)==='empleado - numero de documento')) &&
+    aoa.some(row=>row?.some(value=>headerKey(value)==='liquidacion - periodo'));
+}
+function buildAvanzaUploadData(aoa,fileName){
+  const headerRow=aoa.findIndex(row=>row?.some(value=>headerKey(value)==='empleado - numero de documento'));
+  const headers=aoa[headerRow]||[],idx=headerIndex(headers);
+  const required=['Empleado - Número de Documento','Empleado - Nombre Completo','Liquidación - Período','Empresa - Nombre Empresa','Liquidación - Días Trabajados','Liquidación - Total Haberes','Liquidación - Sueldo Líquido'];
+  const missing=required.filter(name=>idxOf(idx,name)===undefined);
+  if(missing.length) throw new Error(`Faltan columnas del libro de Avanza: ${missing.join(', ')}`);
+  const value=(raw,name)=>rawVal(raw,idx,name);
+  const outputHeaders=['Proceso','Nombre empresa','Sede','Nombre','Rut','Contrato','Cargo','Días Trabajados','Sueldo Base','Gratificación','Bono Gestión Trimestral','Horas Extras Empresa 50%','Colación','Movilización','Suma Haberes','Cotizacion AFP','Cotización Salud','Adicional Salud','Seguro Cesantía','Impuesto Único','Total Rebajas','Sueldo Líquido'];
+  const output=[outputHeaders];
+  const overheadAreas=new Set(['Comercial','Hunting','IT','Outsourcing']);
+  aoa.slice(headerRow+1).forEach(raw=>{
+    const rut=cleanText(value(raw,'Empleado - Número de Documento'));
+    if(!rut) return;
+    const empresa=cleanText(value(raw,'Empresa - Nombre Empresa'))||'Grupo Avanza SPA';
+    const rawSede=cleanText(value(raw,'Trabajo - Nombre Sub-área Asignada(o)'));
+    const sede=overheadAreas.has(rawSede)?'Over head':(rawSede||'Sin sede');
+    const cotizacionPrevisional=numVal(raw,idx,'Descuentos Legales - Cotiz. Previ. Obligatoria');
+    const cotizacionSalud=numVal(raw,idx,'Descuentos Legales - Cotiz. Salud Obligatoria');
+    const adicionalSalud=numVal(raw,idx,'Descuentos Legales - Adicional Salud');
+    const seguroCesantia=numVal(raw,idx,'Descuentos Legales - Seguro Cesantía');
+    const impuesto=numVal(raw,idx,'Descuentos Legales - Impuesto Único');
+    output.push([
+      normalizeAvanzaPeriod(value(raw,'Liquidación - Período')),
+      empresa,
+      sede,
+      cleanText(value(raw,'Empleado - Nombre Completo')),
+      rut,
+      '',
+      '',
+      value(raw,'Liquidación - Días Trabajados'),
+      value(raw,'Haberes Imponibles - Sueldo Base'),
+      value(raw,'Haberes Imponibles - Gratificación'),
+      value(raw,'Haberes Imponibles - Bono Gestión Trimestral'),
+      value(raw,'Haberes Imponibles - Horas Extras 50%'),
+      value(raw,'Haberes No Imponibles - Colación'),
+      value(raw,'Haberes No Imponibles - Movilización'),
+      value(raw,'Liquidación - Total Haberes'),
+      cotizacionPrevisional,
+      cotizacionSalud,
+      adicionalSalud,
+      seguroCesantia,
+      impuesto,
+      cotizacionPrevisional+cotizacionSalud+adicionalSalud+seguroCesantia+impuesto,
+      value(raw,'Liquidación - Sueldo Líquido'),
+    ]);
+  });
+  if(output.length===1) throw new Error('No encontré registros válidos en el libro de Avanza.');
+  return buildDataFromRows(output,fileName,'Grupo Avanza');
+}
+function buildDataFromRows(aoa,fileName,groupId='CRUX FOOD'){
+  const headerRow=aoa.findIndex(row=>row&&((headerKey(row[0])==='empresa'&&headerKey(row[3])==='proceso')||(headerKey(row[0])==='proceso'&&headerKey(row[1])==='nombre empresa')));
   const headers=aoa[headerRow>=0?headerRow:4]||[],idx=headerIndex(headers);
   const need=['Proceso','Nombre empresa','Sede','Nombre','Rut','Contrato','Cargo','Días Trabajados','Sueldo Base','Suma Haberes','Sueldo Líquido','Total Rebajas'];
   const missing=need.filter(h=>idxOf(idx,h)===undefined);
@@ -1788,7 +1849,7 @@ function buildDataFromRows(aoa,fileName){
       monthSums[c.label]=(monthSums[c.label]||0)+v;
     });
     const absenceEnd=idxOf(idx,'Sueldo Base')??headers.length;
-    const row={_raw:headers.map((_,i)=>raw[i]??''),grupo:'CRUX FOOD',proceso:period,empresa,sede,nombre:cleanText(rawVal(raw,idx,'Nombre')),rut:cleanText(rawVal(raw,idx,'Rut')),contrato:cleanText(rawVal(raw,idx,'Contrato')),cargo:cleanText(rawVal(raw,idx,'Cargo')),
+    const row={_raw:headers.map((_,i)=>raw[i]??''),grupo:groupId,proceso:period,empresa,sede,nombre:cleanText(rawVal(raw,idx,'Nombre')),rut:cleanText(rawVal(raw,idx,'Rut')),contrato:cleanText(rawVal(raw,idx,'Contrato')),cargo:cleanText(rawVal(raw,idx,'Cargo')),
       dias:numVal(raw,idx,'Días Trabajados'),sueldo_base:numVal(raw,idx,'Sueldo Base'),total_haberes:numVal(raw,idx,'Suma Haberes'),sueldo_liquido:numVal(raw,idx,'Sueldo Líquido'),
       total_descuentos:numVal(raw,idx,'Total Rebajas'),gratificacion:numVal(raw,idx,'Gratificación'),hhee:numVal(raw,idx,'Horas Extras Empresa 50%'),
       licencia_dias:sumHeaders(raw,headers,k=>k.includes('licencia'),absenceEnd),ausentismo_dias:sumHeaders(raw,headers,k=>k.includes('licencia')||k.includes('permiso')||k.includes('falta'),absenceEnd),
@@ -1798,7 +1859,7 @@ function buildDataFromRows(aoa,fileName){
   });
   const conceptTypes={};
   conceptCols.forEach(c=>{conceptTypes[c.label]=c.type;});
-  const months=Object.keys(byMonth).sort(),data={metadata:{source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers},group_options:[{id:'CRUX FOOD',label:'CRUX FOOD'}],months_by_group:{'CRUX FOOD':months.map(m=>({id:m,label:monthLabelFromPeriod(m)}))},months:months.map(m=>({id:m,label:monthLabelFromPeriod(m)})),kpis:{},groups:{empresa:{},sede:{},empresa_sede:{}},concepts:{},concept_groups:{},concept_options:[...new Set(conceptCols.map(c=>c.label))].sort(),concept_types:conceptTypes,details:{}};
+  const months=Object.keys(byMonth).sort(),data={metadata:{source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers},group_options:[{id:groupId,label:groupId}],months_by_group:{[groupId]:months.map(m=>({id:m,label:monthLabelFromPeriod(m)}))},months:months.map(m=>({id:m,label:monthLabelFromPeriod(m)})),kpis:{},groups:{empresa:{},sede:{},empresa_sede:{}},concepts:{},concept_groups:{},concept_options:[...new Set(conceptCols.map(c=>c.label))].sort(),concept_types:conceptTypes,details:{}};
   months.forEach(month=>{
     const rows=byMonth[month];
     data.kpis[month]=summarizeRows(rows);
@@ -1829,7 +1890,7 @@ function handleFileUpload(e){
       const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:false});
       const ws=wb.Sheets.Detalle||wb.Sheets[wb.SheetNames[0]];
       const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
-      reloadData(buildDataFromRows(aoa,file.name));
+      reloadData(isAvanzaBook(aoa)?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name));
     }catch(err){console.error(err);alert(`No pude cargar el archivo: ${err.message}`);}
   };
   reader.readAsArrayBuffer(file);
