@@ -1873,6 +1873,7 @@ function buildDataFromRows(aoa,fileName,groupId='CRUX FOOD'){
   return data;
 }
 function reloadData(newData){
+  newData.metadata={...newData.metadata,show_audit:true};
   DATA=ensureGroups(newData); byId=Object.fromEntries(DATA.months.map(m=>[m.id,m]));
   state.grupo=DATA.group_options[0]?.id||'CRUX FOOD';
   const months=groupMonths(state.grupo);
