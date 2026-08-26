@@ -456,7 +456,7 @@ def build_multi_data() -> dict:
             "company_count": len({r["empresa"] for rows in details_by_month.values() for r in rows}),
             "raw_headers": crux["metadata"].get("raw_headers", []),
             "avanza_headers": avanza_headers,
-            "show_audit": False,
+            "show_audit": True,
         },
         "group_options": group_options,
         "months_by_group": months_by_group,
@@ -495,7 +495,7 @@ def data_for_group(data: dict, group_id: str) -> dict:
         {
             "generated_from": f"Detalle grupo {group_id}",
             "locked_group": group_id,
-            "show_audit": False,
+            "show_audit": True,
             "month_count": len(months),
             "record_count": sum(len(rows) for rows in details.values()),
             "company_count": len({row["empresa"] for rows in details.values() for row in rows}),
