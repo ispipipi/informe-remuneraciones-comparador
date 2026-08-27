@@ -14,10 +14,12 @@ from openpyxl import load_workbook
 BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
+AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
 OUTPUT = Path(os.environ.get("REMUN_OUTPUT", BASE_DIR / "index.html"))
 GROUP_OUTPUTS = {
     "CRUX FOOD": BASE_DIR / "crux-food" / "index.html",
     "Grupo Avanza": BASE_DIR / "grupo-avanza" / "index.html",
+    "Grupo AVESA": BASE_DIR / "grupo-avesa" / "index.html",
 }
 ARTBPO_OUTPUT = BASE_DIR / "artbpo" / "index.html"
 
@@ -419,6 +421,91 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
     return by_month, concept_types, [json_value(h) for h in headers]
 
 
+def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
+    if not source.exists():
+        return {}, {}, []
+    wb = load_workbook(source, read_only=True, data_only=True)
+    ws = wb["Detalle"]
+    rows_iter = ws.iter_rows(values_only=True)
+
+    for _ in range(HEADER_ROW_INDEX - 1):
+        next(rows_iter)
+    headers = list(next(rows_iter))
+    header_index = {h: i for i, h in enumerate(headers) if h}
+
+    concept_cols = []
+    concept_start = header_index.get("Sueldo Base", 22)
+    concept_end = min(
+        [i for name in ("Cotizacion AFP", "Sueldo Líquido") if (i := header_index.get(name)) is not None],
+        default=len(headers),
+    )
+    for idx in range(concept_start, concept_end):
+        label = clean(headers[idx])
+        if label and label not in {"Suma Haberes", "Sueldo Líquido"}:
+            concept_cols.append({"idx": idx, "label": label, "type": "haber"})
+    discount_start = header_index.get("Cotizacion AFP")
+    discount_end = min(
+        [i for name in ("Aporte a CCAF", "Mutual", "Sueldo Líquido") if (i := header_index.get(name)) is not None],
+        default=len(headers),
+    )
+    if discount_start is not None:
+        for idx in range(discount_start, discount_end):
+            label = clean(headers[idx])
+            if label and label not in {"Total Rebajas"}:
+                concept_cols.append({"idx": idx, "label": label, "type": "descuento"})
+
+    absence_end = header_index.get("Sueldo Base", len(headers))
+    licencia_indices = [idx for idx, label in enumerate(headers[:absence_end]) if "licencia" in header_key(label)]
+    ausentismo_indices = [
+        idx for idx, label in enumerate(headers[:absence_end])
+        if any(term in header_key(label) for term in ("licencia", "permiso", "falta"))
+    ]
+
+    by_month: dict[str, list[dict]] = defaultdict(list)
+    for raw in rows_iter:
+        if not raw or not raw[0] or raw[0] == "Empresa":
+            continue
+        period = period_id(raw[header_index["Proceso"]])
+        empresa = clean(raw[header_index["Nombre empresa"]])
+        sede = clean(raw[header_index["Sede"]]) or "Sin sede"
+        concepts = {
+            col["label"]: round(value)
+            for col in concept_cols
+            for idx in [col["idx"]]
+            if (value := num(raw[idx] if idx < len(raw) else 0)) != 0
+        }
+        row = {
+            "grupo": group_id,
+            "_raw_empresa": empresa,
+            "_raw_sede": sede,
+            "proceso": period,
+            "empresa": empresa,
+            "rut_empresa": clean(raw[header_index["Rut empresa"]]) if "Rut empresa" in header_index else "",
+            "sede": sede,
+            "nombre": clean(raw[header_index["Nombre"]]),
+            "rut": clean(raw[header_index["Rut"]]),
+            "contrato": clean(raw[header_index["Contrato"]]) if "Contrato" in header_index else "",
+            "cargo": clean(raw[header_index["Cargo"]]),
+            "dias": num(raw[header_index["Días Trabajados"]]),
+            "sueldo_base": num(raw[header_index["Sueldo Base"]]),
+            "total_haberes": num(raw[header_index["Suma Haberes"]]),
+            "sueldo_liquido": num(raw[header_index["Sueldo Líquido"]]),
+            "total_descuentos": num(raw[header_index["Total Rebajas"]]),
+            "gratificacion": num(raw[header_index["Gratificación"]]) if "Gratificación" in header_index else 0,
+            "hhee": num(raw[header_index["Horas Extras Empresa 50%"]]) if "Horas Extras Empresa 50%" in header_index else 0,
+            "licencia_dias": sum(num(raw[i] if i < len(raw) else 0) for i in licencia_indices),
+            "ausentismo_dias": sum(num(raw[i] if i < len(raw) else 0) for i in ausentismo_indices),
+            "movilizacion": num(raw[header_index["Movilizacion"]]) if "Movilizacion" in header_index else 0,
+            "colacion": num(raw[header_index["Colacion"]]) if "Colacion" in header_index else 0,
+            "bono_manip_pae": 0,
+            "raw": [json_value(v) for v in raw],
+            "concepts": concepts,
+        }
+        row["fte"] = round(row["dias"] / 30, 2)
+        by_month[period].append(row)
+    return by_month, {col["label"]: col["type"] for col in concept_cols}, [json_value(h) for h in headers]
+
+
 def build_multi_data() -> dict:
     crux = build_data()
     details_by_month: dict[str, list[dict]] = defaultdict(list)
@@ -433,14 +520,19 @@ def build_multi_data() -> dict:
     avanza_rows, avanza_concept_types, avanza_headers = avanza_details()
     for month, rows in avanza_rows.items():
         details_by_month[month].extend(rows)
+    avesa_rows, avesa_concept_types, avesa_headers = detail_source_details(AVESA_SOURCE, "Grupo AVESA")
+    for month, rows in avesa_rows.items():
+        details_by_month[month].extend(rows)
 
     months = sorted(details_by_month)
     concept_types = dict(crux.get("concept_types", {}))
     concept_types.update(avanza_concept_types)
+    concept_types.update(avesa_concept_types)
     concept_options = sorted({c for rows in details_by_month.values() for row in rows for c in row.get("concepts", {})})
     group_options = [
         {"id": "CRUX FOOD", "label": "CRUX FOOD"},
         {"id": "Grupo Avanza", "label": "Grupo Avanza"},
+        {"id": "Grupo AVESA", "label": "Grupo AVESA"},
     ]
     months_by_group = {}
     for group in group_options:
@@ -449,14 +541,15 @@ def build_multi_data() -> dict:
 
     data = {
         "metadata": {
-            "source": f"{SOURCE.name} + {AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else 'sin Avanza'}",
+            "source": f"{SOURCE.name} + {AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else 'sin Avanza'} + {AVESA_SOURCE.name if AVESA_SOURCE.exists() else 'sin AVESA'}",
             "generated_from": "Detalle multi grupo",
             "month_count": len(months),
             "record_count": sum(len(v) for v in details_by_month.values()),
             "company_count": len({r["empresa"] for rows in details_by_month.values() for r in rows}),
             "raw_headers": crux["metadata"].get("raw_headers", []),
             "avanza_headers": avanza_headers,
-            "show_audit": True,
+            "avesa_headers": avesa_headers,
+            "show_audit": False,
         },
         "group_options": group_options,
         "months_by_group": months_by_group,
@@ -1402,7 +1495,10 @@ const avanzaDownloadReports=[
   {id:'avanza_general',name:'Grupo Avanza',file:'GA_Informe_General',rule:'Todas las áreas de Grupo Avanza',filter:r=>true},
   {id:'avanza_outsourcing',name:'Outsourcing',file:'GA_Outsourcing',rule:'Grupo Avanza sin overhead',filter:r=>!isOverheadRow(r)},
 ];
-function activeDownloadReports(){return state.grupo==='Grupo Avanza'?avanzaDownloadReports:downloadReports;}
+const avesaDownloadReports=[
+  {id:'avesa_general',name:'Grupo AVESA',file:'Revision_General_AVESA',rule:'Todas las empresas y áreas de Grupo AVESA',filter:r=>true},
+];
+function activeDownloadReports(){return state.grupo==='Grupo Avanza'?avanzaDownloadReports:state.grupo==='Grupo AVESA'?avesaDownloadReports:downloadReports;}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function isPakarati(s){const x=norm(s);return x.includes('pakarati')||x.includes('claudia lorena');}
 function isAlianza(s){return norm(s).includes('alianza');}
@@ -1463,8 +1559,9 @@ function avanzaMonthRow(r){
 }
 function monthRowsAoA(rows,month){
   const isAvanza=rows.some(r=>r.grupo==='Grupo Avanza')&&!rows.some(r=>r.grupo==='CRUX FOOD');
+  const isAvesa=rows.some(r=>r.grupo==='Grupo AVESA')&&!rows.some(r=>r.grupo==='CRUX FOOD'||r.grupo==='Grupo Avanza');
   if(isAvanza) return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
-  const headers=isAvanza&&DATA.metadata.avanza_headers?.length?DATA.metadata.avanza_headers:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']);
+  const headers=isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']);
   return [headers,...rows.map(r=>{
     if(r.raw?.length) return headers.map((_,i)=>r.raw[i]??'');
     const fallback=['',r.empresa,'',month,r.nombre,r.rut,r.contrato,r.sede,r.dias,r.cargo];
@@ -1825,7 +1922,7 @@ function buildAvanzaUploadData(aoa,fileName){
   if(output.length===1) throw new Error('No encontré registros válidos en el libro de Avanza.');
   return buildDataFromRows(output,fileName,'Grupo Avanza');
 }
-function buildDataFromRows(aoa,fileName,groupId='CRUX FOOD'){
+function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||state.grupo||'CRUX FOOD'){
   const headerRow=aoa.findIndex(row=>row&&((headerKey(row[0])==='empresa'&&headerKey(row[3])==='proceso')||(headerKey(row[0])==='proceso'&&headerKey(row[1])==='nombre empresa')));
   const headers=aoa[headerRow>=0?headerRow:4]||[],idx=headerIndex(headers);
   const need=['Proceso','Nombre empresa','Sede','Nombre','Rut','Contrato','Cargo','Días Trabajados','Sueldo Base','Suma Haberes','Sueldo Líquido','Total Rebajas'];
@@ -1859,7 +1956,13 @@ function buildDataFromRows(aoa,fileName,groupId='CRUX FOOD'){
   });
   const conceptTypes={};
   conceptCols.forEach(c=>{conceptTypes[c.label]=c.type;});
-  const months=Object.keys(byMonth).sort(),data={metadata:{source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers},group_options:[{id:groupId,label:groupId}],months_by_group:{[groupId]:months.map(m=>({id:m,label:monthLabelFromPeriod(m)}))},months:months.map(m=>({id:m,label:monthLabelFromPeriod(m)})),kpis:{},groups:{empresa:{},sede:{},empresa_sede:{}},concepts:{},concept_groups:{},concept_options:[...new Set(conceptCols.map(c=>c.label))].sort(),concept_types:conceptTypes,details:{}};
+  const months=Object.keys(byMonth).sort();
+  const groupMeta=DATA.group_options?.find(g=>g.id===groupId)||{id:groupId,label:groupId};
+  const headerKeyName=groupId==='Grupo AVESA'?'avesa_headers':groupId==='Grupo Avanza'?'avanza_headers':'raw_headers';
+  const metadata={source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers,show_audit:false};
+  metadata[headerKeyName]=headers;
+  if(DATA.metadata?.locked_group) metadata.locked_group=groupId;
+  const data={metadata,group_options:[groupMeta],months_by_group:{[groupId]:months.map(m=>({id:m,label:monthLabelFromPeriod(m)}))},months:months.map(m=>({id:m,label:monthLabelFromPeriod(m)})),kpis:{},groups:{empresa:{},sede:{},empresa_sede:{}},concepts:{},concept_groups:{},concept_options:[...new Set(conceptCols.map(c=>c.label))].sort(),concept_types:conceptTypes,details:{}};
   months.forEach(month=>{
     const rows=byMonth[month];
     data.kpis[month]=summarizeRows(rows);
@@ -1873,12 +1976,12 @@ function buildDataFromRows(aoa,fileName,groupId='CRUX FOOD'){
   return data;
 }
 function reloadData(newData){
-  newData.metadata={...newData.metadata,show_audit:true};
+  newData.metadata={...newData.metadata,show_audit:!!DATA.metadata?.show_audit};
   DATA=ensureGroups(newData); byId=Object.fromEntries(DATA.months.map(m=>[m.id,m]));
   state.grupo=DATA.group_options[0]?.id||'CRUX FOOD';
   const months=groupMonths(state.grupo);
   state.base=months.at(-2)?.id||months[0]?.id||''; state.comp=months.at(-1)?.id||state.base;
-  state.empresa='';state.sede='';state.metric='total_haberes';state.compareMetrics=['total_haberes','sueldo_liquido'];state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.selectedConcept='';state.detailFilters={};
+  state.empresa='';state.sede='';state.metric='total_haberes';state.compareMetrics=['total_haberes','sueldo_liquido'];state.dashboardKpiFocus='total_haberes';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.selectedConcept='';state.detailFilters={};
   initSelectors(); renderAll();
 }
 function handleFileUpload(e){
