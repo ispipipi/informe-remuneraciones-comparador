@@ -588,7 +588,7 @@ def data_for_group(data: dict, group_id: str) -> dict:
         {
             "generated_from": f"Detalle grupo {group_id}",
             "locked_group": group_id,
-            "show_audit": True,
+            "show_audit": False,
             "month_count": len(months),
             "record_count": sum(len(rows) for rows in details.values()),
             "company_count": len({row["empresa"] for rows in details.values() for row in rows}),
