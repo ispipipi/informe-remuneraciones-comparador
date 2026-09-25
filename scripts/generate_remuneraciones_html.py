@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import os
+import re
 import unicodedata
 from datetime import date, datetime
 from collections import Counter, defaultdict
@@ -14,6 +15,7 @@ from openpyxl import load_workbook
 BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
+AVANZA_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("avanza_mensual_*.xlsx"))
 AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
 OUTPUT = Path(os.environ.get("REMUN_OUTPUT", BASE_DIR / "index.html"))
 GROUP_OUTPUTS = {
@@ -344,13 +346,29 @@ def group_concepts_from_details(rows: list[dict]) -> dict:
     }
 
 
-def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
+def avanza_period_from_label(value: str) -> str:
+    normalized = header_key(value)
+    months = {
+        "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+        "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
+        "septiembre": "09", "setiembre": "09", "octubre": "10",
+        "noviembre": "11", "diciembre": "12",
+    }
+    match = re.search(r"(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(\d{4})", normalized)
+    return f"{match.group(2)}-{months[match.group(1)]}" if match else ""
+
+
+def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], dict[str, list[str]]]:
     if not AVANZA_SOURCE.exists():
-        return {}, {}, []
-    wb = load_workbook(AVANZA_SOURCE, read_only=True, data_only=True)
-    ws = wb["Libro de remu CE"]
-    headers = list(next(ws.iter_rows(min_row=6, max_row=6, values_only=True)))
-    idx = {h: i for i, h in enumerate(headers) if h}
+        by_month: dict[str, list[dict]] = defaultdict(list)
+        concept_types: dict[str, str] = {}
+        headers: list[str] = []
+        headers_by_month: dict[str, list[str]] = {}
+    else:
+        wb = load_workbook(AVANZA_SOURCE, read_only=True, data_only=True)
+        ws = wb["Libro de remu CE"]
+        headers = list(next(ws.iter_rows(min_row=6, max_row=6, values_only=True)))
+        idx = {h: i for i, h in enumerate(headers) if h}
     concept_map = {
         "Haberes Imponibles - Sueldo Base": ("Sueldo Base", "haber"),
         "Haberes Imponibles - Gratificación": ("Gratificación", "haber"),
@@ -364,61 +382,135 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
         "Descuentos Legales - Seguro Cesantía": ("Seguro Cesantía", "descuento"),
         "Descuentos Legales - Impuesto Único": ("Impuesto Único", "descuento"),
     }
-    concept_types = {label: typ for _, (label, typ) in concept_map.items()}
+    concept_types = {label: typ for _, (label, typ) in concept_map.items()} if AVANZA_SOURCE.exists() else {}
     allowed_companies = {
         "Grupo Avanza SPA",
         "EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA",
     }
     overhead_areas = {"Comercial", "Hunting", "IT", "Outsourcing"}
     by_month: dict[str, list[dict]] = defaultdict(list)
-    for raw in ws.iter_rows(min_row=7, values_only=True):
-        if not raw or not raw[0]:
-            continue
-        period = period_id(raw[idx["Liquidación - Período"]])
-        empresa = clean(raw[idx["Empresa - Nombre Empresa"]]) or "Grupo Avanza SPA"
-        if empresa not in allowed_companies:
-            continue
-        raw_sede = clean(raw[idx["Trabajo - Nombre Sub-área Asignada(o)"]]) or "Sin sede"
-        sede = "Over head" if raw_sede in overhead_areas else raw_sede
-        concepts = {}
-        for source_name, (label, _) in concept_map.items():
-            value = num(raw[idx[source_name]] if idx[source_name] < len(raw) else 0)
-            if value:
-                concepts[label] = round(value)
-        total_desc = sum(num(raw[idx[name]] if idx[name] < len(raw) else 0) for name in [
-            "Descuentos Legales - Cotiz. Previ. Obligatoria",
-            "Descuentos Legales - Cotiz. Salud Obligatoria",
-            "Descuentos Legales - Adicional Salud",
-            "Descuentos Legales - Seguro Cesantía",
-            "Descuentos Legales - Impuesto Único",
-        ])
-        row = {
-            "grupo": "Grupo Avanza",
-            "rut": clean(raw[idx["Empleado - Número de Documento"]]),
-            "nombre": clean(raw[idx["Empleado - Nombre Completo"]]),
-            "cargo": "",
-            "contrato": "",
-            "empresa": empresa,
-            "rut_empresa": "",
-            "sede": sede,
-            "dias": num(raw[idx["Liquidación - Días Trabajados"]]),
-            "fte": round(num(raw[idx["Liquidación - Días Trabajados"]]) / 30, 2),
-            "sueldo_base": round(num(raw[idx["Haberes Imponibles - Sueldo Base"]])),
-            "total_haberes": round(num(raw[idx["Liquidación - Total Haberes"]])),
-            "total_descuentos": round(total_desc),
-            "sueldo_liquido": round(num(raw[idx["Liquidación - Sueldo Líquido"]])),
-            "hhee": round(num(raw[idx["Haberes Imponibles - Horas Extras 50%"]])),
-            "gratificacion": round(num(raw[idx["Haberes Imponibles - Gratificación"]])),
-            "movilizacion": round(num(raw[idx["Haberes No Imponibles - Movilización"]])),
-            "colacion": round(num(raw[idx["Haberes No Imponibles - Colación"]])),
-            "licencia_dias": 0,
-            "ausentismo_dias": 0,
-            "bono_manip_pae": 0,
-            "raw": [json_value(v) for v in raw],
-            "concepts": concepts,
-        }
-        by_month[period].append(row)
-    return by_month, concept_types, [json_value(h) for h in headers]
+    headers_by_month: dict[str, list[str]] = {}
+    if AVANZA_SOURCE.exists():
+        headers_by_month.update({})
+        for raw in ws.iter_rows(min_row=7, values_only=True):
+            if not raw or not raw[0]:
+                continue
+            period = period_id(raw[idx["Liquidación - Período"]])
+            empresa = clean(raw[idx["Empresa - Nombre Empresa"]]) or "Grupo Avanza SPA"
+            if empresa not in allowed_companies:
+                continue
+            raw_sede = clean(raw[idx["Trabajo - Nombre Sub-área Asignada(o)"]]) or "Sin sede"
+            sede = "Over head" if raw_sede in overhead_areas else raw_sede
+            concepts = {}
+            for source_name, (label, _) in concept_map.items():
+                value = num(raw[idx[source_name]] if idx[source_name] < len(raw) else 0)
+                if value:
+                    concepts[label] = round(value)
+            total_desc = sum(num(raw[idx[name]] if idx[name] < len(raw) else 0) for name in [
+                "Descuentos Legales - Cotiz. Previ. Obligatoria",
+                "Descuentos Legales - Cotiz. Salud Obligatoria",
+                "Descuentos Legales - Adicional Salud",
+                "Descuentos Legales - Seguro Cesantía",
+                "Descuentos Legales - Impuesto Único",
+            ])
+            row = {
+                "grupo": "Grupo Avanza", "rut": clean(raw[idx["Empleado - Número de Documento"]]),
+                "nombre": clean(raw[idx["Empleado - Nombre Completo"]]), "cargo": "", "contrato": "",
+                "empresa": empresa, "rut_empresa": "", "sede": sede,
+                "dias": num(raw[idx["Liquidación - Días Trabajados"]]),
+                "fte": round(num(raw[idx["Liquidación - Días Trabajados"]]) / 30, 2),
+                "sueldo_base": round(num(raw[idx["Haberes Imponibles - Sueldo Base"]])),
+                "total_haberes": round(num(raw[idx["Liquidación - Total Haberes"]])),
+                "total_descuentos": round(total_desc),
+                "sueldo_liquido": round(num(raw[idx["Liquidación - Sueldo Líquido"]])),
+                "hhee": round(num(raw[idx["Haberes Imponibles - Horas Extras 50%"]])),
+                "gratificacion": round(num(raw[idx["Haberes Imponibles - Gratificación"]])),
+                "movilizacion": round(num(raw[idx["Haberes No Imponibles - Movilización"]])),
+                "colacion": round(num(raw[idx["Haberes No Imponibles - Colación"]])),
+                "licencia_dias": 0, "ausentismo_dias": 0, "bono_manip_pae": 0,
+                "raw": [json_value(v) for v in raw], "concepts": concepts,
+            }
+            by_month[period].append(row)
+            headers_by_month[period] = [json_value(h) for h in headers]
+
+    monthly_months = {}
+    monthly_seen_sheets = defaultdict(list)
+    monthly_concept_types = {}
+    for source in AVANZA_MONTH_SOURCES:
+        monthly_wb = load_workbook(source, read_only=True, data_only=True)
+        for monthly_ws in monthly_wb.worksheets:
+            top = clean(monthly_ws.cell(2, 1).value)
+            period = avanza_period_from_label(clean(monthly_ws.cell(3, 1).value))
+            if not top.lower().startswith("empresa:") or not period:
+                continue
+            empresa = re.sub(r"^empresa:\s*", "", top, flags=re.IGNORECASE)
+            empresa = re.sub(r"\s*\([^)]*\)\s*$", "", empresa).strip()
+            if empresa not in allowed_companies:
+                continue
+            monthly_headers = list(next(monthly_ws.iter_rows(min_row=6, max_row=6, values_only=True)))
+            normalized = [header_key(h) for h in monthly_headers]
+            index = {h: i for i, h in enumerate(normalized) if h}
+            required = {"rut", "cargo", "area", "dias trabajados", "sueldo base", "total haberes", "total descuentos", "sueldo liquido"}
+            if not required.issubset(index):
+                continue
+            rows = [list(raw) for raw in monthly_ws.iter_rows(min_row=7, values_only=True) if raw and clean(raw[index["rut"]])]
+            if not rows:
+                continue
+            sheet_ruts = frozenset(clean(raw[index["rut"]]) for raw in rows)
+            sheet_key = (period, empresa)
+            if sheet_ruts in monthly_seen_sheets[sheet_key]:
+                continue
+            monthly_seen_sheets[sheet_key].append(sheet_ruts)
+            monthly_months[period] = [json_value(h) for h in monthly_headers]
+            for raw in rows:
+                area = clean(raw[index["area"]])
+                area_name = area.split(",", 1)[0].strip() or "Sin sede"
+                overhead_names = {header_key(x) for x in (*overhead_areas, "Over head")}
+                sede = "Over head" if header_key(area_name) in overhead_names else area_name
+                names = [clean(raw[index[key]]) for key in ("ap paterno", "ap materno", "nombres") if key in index]
+                concepts = {}
+                earning_start = index.get("sueldo base", -1)
+                earning_end = index.get("total haberes", len(monthly_headers))
+                discount_start = index.get("previs", -1)
+                discount_end = index.get("total descuentos", len(monthly_headers))
+                for col in range(earning_start, earning_end):
+                    label = clean(monthly_headers[col])
+                    if label:
+                        monthly_concept_types[label] = "haber"
+                        value = num(raw[col] if col < len(raw) else 0)
+                        if value:
+                            concepts[label] = concepts.get(label, 0) + round(value)
+                for col in range(discount_start, discount_end):
+                    label = clean(monthly_headers[col])
+                    if label:
+                        monthly_concept_types[label] = "descuento"
+                        value = num(raw[col] if col < len(raw) else 0)
+                        if value:
+                            concepts[label] = concepts.get(label, 0) + round(value)
+                by_month[period].append({
+                    "grupo": "Grupo Avanza", "rut": clean(raw[index["rut"]]),
+                    "nombre": " ".join(part for part in names if part),
+                    "cargo": clean(raw[index["cargo"]]), "contrato": clean(raw[index["codigo"]]) if "codigo" in index else "",
+                    "empresa": empresa, "rut_empresa": "", "sede": sede,
+                    "dias": num(raw[index["dias trabajados"]]),
+                    "fte": round(num(raw[index["dias trabajados"]]) / 30, 2),
+                    "sueldo_base": round(num(raw[index["sueldo base"]])),
+                    "total_haberes": round(num(raw[index["total haberes"]])),
+                    "total_descuentos": round(num(raw[index["total descuentos"]])),
+                    "sueldo_liquido": round(num(raw[index["sueldo liquido"]])),
+                    "hhee": round(num(raw[index["horas extras"]])) if "horas extras" in index else 0,
+                    "gratificacion": round(num(raw[index["gratificacion"]])) if "gratificacion" in index else 0,
+                    "movilizacion": round(num(raw[index["movilizacion"]])) if "movilizacion" in index else 0,
+                    "colacion": round(num(raw[index["colacion"]])) if "colacion" in index else 0,
+                    "licencia_dias": 0, "ausentismo_dias": 0, "bono_manip_pae": 0,
+                    "raw": [json_value(v) for v in raw], "concepts": concepts,
+                })
+        monthly_wb.close()
+    headers_by_month.update(monthly_months)
+    concept_types.update(monthly_concept_types)
+    if AVANZA_SOURCE.exists():
+        wb.close()
+    return by_month, concept_types, [json_value(h) for h in headers], headers_by_month
 
 
 def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[dict]], dict[str, str], list[str]]:
@@ -517,7 +609,7 @@ def build_multi_data() -> dict:
             row.setdefault("movilizacion", num(row.get("concepts", {}).get("Movilizacion", row.get("concepts", {}).get("Movilización", 0))))
             row.setdefault("colacion", num(row.get("concepts", {}).get("Colacion", row.get("concepts", {}).get("Colación", 0))))
             details_by_month[month].append(row)
-    avanza_rows, avanza_concept_types, avanza_headers = avanza_details()
+    avanza_rows, avanza_concept_types, avanza_headers, avanza_month_headers = avanza_details()
     for month, rows in avanza_rows.items():
         details_by_month[month].extend(rows)
     avesa_rows, avesa_concept_types, avesa_headers = detail_source_details(AVESA_SOURCE, "Grupo AVESA")
@@ -541,13 +633,14 @@ def build_multi_data() -> dict:
 
     data = {
         "metadata": {
-            "source": f"{SOURCE.name} + {AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else 'sin Avanza'} + {AVESA_SOURCE.name if AVESA_SOURCE.exists() else 'sin AVESA'}",
+            "source": " + ".join([SOURCE.name, AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA"]),
             "generated_from": "Detalle multi grupo",
             "month_count": len(months),
             "record_count": sum(len(v) for v in details_by_month.values()),
             "company_count": len({r["empresa"] for rows in details_by_month.values() for r in rows}),
             "raw_headers": crux["metadata"].get("raw_headers", []),
             "avanza_headers": avanza_headers,
+            "avanza_month_headers": avanza_month_headers,
             "avesa_headers": avesa_headers,
             "show_audit": False,
         },
@@ -1560,7 +1653,11 @@ function avanzaMonthRow(r){
 function monthRowsAoA(rows,month){
   const isAvanza=rows.some(r=>r.grupo==='Grupo Avanza')&&!rows.some(r=>r.grupo==='CRUX FOOD');
   const isAvesa=rows.some(r=>r.grupo==='Grupo AVESA')&&!rows.some(r=>r.grupo==='CRUX FOOD'||r.grupo==='Grupo Avanza');
-  if(isAvanza) return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
+  if(isAvanza){
+    const headers=DATA.metadata.avanza_month_headers?.[month];
+    if(headers?.length&&rows.every(r=>Array.isArray(r.raw))) return [headers,...rows.map(r=>headers.map((_,i)=>r.raw[i]??''))];
+    return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
+  }
   const headers=isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']);
   return [headers,...rows.map(r=>{
     if(r.raw?.length) return headers.map((_,i)=>r.raw[i]??'');
