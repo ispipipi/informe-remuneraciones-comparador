@@ -872,7 +872,7 @@ const downloadReports=[
 ];
 const avanzaDownloadReports=[
   {id:'avanza_general',name:'Grupo Avanza',file:'GA_Informe_General',rule:'Todas las áreas de Grupo Avanza',filter:r=>true},
-  {id:'avanza_outsourcing',name:'Outsourcing',file:'GA_Outsourcing',rule:'Grupo Avanza sin overhead',filter:r=>!isOverheadRow(r)},
+  {id:'avanza_outsourcing',name:'Outsourcing',file:'GA_Outsourcing',rule:'Grupo Avanza, excluyendo únicamente Over head',filter:r=>!isOverheadRow(r)},
 ];
 const avesaDownloadReports=[
   {id:'avesa_general',name:'Grupo AVESA',file:'Revision_General_AVESA',rule:'Todas las empresas y áreas de Grupo AVESA',filter:r=>true},
@@ -885,7 +885,7 @@ function companyText(r){return [r.empresa,r.raw?.[0],r.raw?.[1],r.raw?.[2]].map(
 function isPakaratiRow(r){return isPakarati(companyText(r));}
 function isPakaratiDownloadRow(r){const sede=norm(r.sede);return sede==='ut isla'||sede.includes('oficinas tekarera')||sede.includes('oficina pakarati')||sede.includes('oficinas pakarati');}
 function isAlianzaRow(r){return isAlianza(companyText(r));}
-function isOverheadRow(r){return norm(r.sede)==='over head'||norm([r.empresa,r.sede,r.cargo,r.raw?.join(' ')].join(' ')).includes('overhead');}
+function isOverheadRow(r){const sede=norm(r.sede).trim();return sede==='over head'||sede==='overhead';}
 function reportMonths(){const months=groupMonths(state.grupo);return [months.at(-2)?.id,months.at(-1)?.id].filter(Boolean);}
 function reportBaseFilter(r){return inGroup(r);}
 function downloadStats(report){
