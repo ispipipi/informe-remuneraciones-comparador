@@ -14,6 +14,7 @@ from openpyxl import load_workbook
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
+CRUX_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("crux_mensual_*.xlsx"))
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 AVANZA_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("avanza_mensual_*.xlsx"))
 AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
@@ -166,8 +167,8 @@ def group_concepts(rows: list[dict], concept_cols: list[dict]) -> dict:
     }
 
 
-def build_data() -> dict:
-    wb = load_workbook(SOURCE, read_only=True, data_only=True)
+def build_data(source: Path = SOURCE) -> dict:
+    wb = load_workbook(source, read_only=True, data_only=True)
     ws = wb["Detalle"]
     rows_iter = ws.iter_rows(values_only=True)
 
@@ -256,7 +257,7 @@ def build_data() -> dict:
     months = sorted(by_month_rows)
     data = {
         "metadata": {
-            "source": SOURCE.name,
+            "source": source.name,
             "generated_from": "Detalle",
             "month_count": len(months),
             "record_count": sum(len(v) for v in by_month_rows.values()),
@@ -601,7 +602,19 @@ def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[d
 def build_multi_data() -> dict:
     crux = build_data()
     details_by_month: dict[str, list[dict]] = defaultdict(list)
-    for month, rows in crux["details"].items():
+    crux_rows_by_month = dict(crux["details"])
+    crux_month_headers = {
+        month: crux["metadata"].get("raw_headers", [])
+        for month in crux["details"]
+    }
+    crux_concept_types = dict(crux.get("concept_types", {}))
+    for source in CRUX_MONTH_SOURCES:
+        monthly_data = build_data(source)
+        crux_concept_types.update(monthly_data.get("concept_types", {}))
+        for month, rows in monthly_data["details"].items():
+            crux_rows_by_month[month] = rows
+            crux_month_headers[month] = monthly_data["metadata"].get("raw_headers", [])
+    for month, rows in crux_rows_by_month.items():
         for row in rows:
             row = dict(row)
             row["grupo"] = "CRUX FOOD"
@@ -617,7 +630,7 @@ def build_multi_data() -> dict:
         details_by_month[month].extend(rows)
 
     months = sorted(details_by_month)
-    concept_types = dict(crux.get("concept_types", {}))
+    concept_types = crux_concept_types
     concept_types.update(avanza_concept_types)
     concept_types.update(avesa_concept_types)
     concept_options = sorted({c for rows in details_by_month.values() for row in rows for c in row.get("concepts", {})})
@@ -633,12 +646,13 @@ def build_multi_data() -> dict:
 
     data = {
         "metadata": {
-            "source": " + ".join([SOURCE.name, AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA"]),
+            "source": " + ".join([SOURCE.name, *(path.name for path in CRUX_MONTH_SOURCES), AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA"]),
             "generated_from": "Detalle multi grupo",
             "month_count": len(months),
             "record_count": sum(len(v) for v in details_by_month.values()),
             "company_count": len({r["empresa"] for rows in details_by_month.values() for r in rows}),
             "raw_headers": crux["metadata"].get("raw_headers", []),
+            "crux_month_headers": crux_month_headers,
             "avanza_headers": avanza_headers,
             "avanza_month_headers": avanza_month_headers,
             "avesa_headers": avesa_headers,
@@ -1658,7 +1672,7 @@ function monthRowsAoA(rows,month){
     if(headers?.length&&rows.every(r=>Array.isArray(r.raw))) return [headers,...rows.map(r=>headers.map((_,i)=>r.raw[i]??''))];
     return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
   }
-  const headers=isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']);
+  const headers=isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.crux_month_headers?.[month]?.length?DATA.metadata.crux_month_headers[month]:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']));
   return [headers,...rows.map(r=>{
     if(r.raw?.length) return headers.map((_,i)=>r.raw[i]??'');
     const fallback=['',r.empresa,'',month,r.nombre,r.rut,r.contrato,r.sede,r.dias,r.cargo];
