@@ -10,6 +10,8 @@ Pagina estatica publicada en GitHub Pages.
 4. Confirma el cambio en la rama `main`.
 5. GitHub Actions regenerara `index.html` automaticamente.
 
+El libro completo es la fuente definitiva para CRUX. No se aplican sobrescrituras de archivos mensuales ni correcciones anteriores.
+
 Cuando termine la accion, el mismo link de GitHub Pages mostrara los datos nuevos para todos.
 
 El archivo de carga interno debe tener las cabeceras en la fila 5 y la hoja `Detalle`.

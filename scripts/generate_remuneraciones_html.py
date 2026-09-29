@@ -14,8 +14,9 @@ from openpyxl import load_workbook
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
-CRUX_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("crux_mensual_*.xlsx"))
-CRUX_HHEE_CORRECTION_SOURCE = Path(os.environ.get("CRUX_HHEE_CORRECTION_SOURCE", BASE_DIR / "data" / "crux_hhee_correccion_2026-08.xlsx"))
+# The complete CRUX workbook is authoritative; ignore older month snapshots and corrections.
+CRUX_MONTH_SOURCES: list[Path] = []
+CRUX_HHEE_CORRECTION_SOURCE: Path | None = None
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 AVANZA_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("avanza_mensual_*.xlsx"))
 AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
@@ -725,7 +726,7 @@ def build_multi_data() -> dict:
         months_by_group[gid] = [{"id": m, "label": month_label(m)} for m in months if any(r.get("grupo") == gid for r in details_by_month[m])]
 
     source_names = [SOURCE.name, *(path.name for path in CRUX_MONTH_SOURCES)]
-    if CRUX_HHEE_CORRECTION_SOURCE.exists():
+    if CRUX_HHEE_CORRECTION_SOURCE and CRUX_HHEE_CORRECTION_SOURCE.exists():
         source_names.append(CRUX_HHEE_CORRECTION_SOURCE.name)
     data = {
         "metadata": {
