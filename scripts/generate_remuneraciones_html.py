@@ -66,6 +66,13 @@ def header_key(value) -> str:
     return "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
 
 
+def canonical_concept_label(value) -> str:
+    label = clean(value)
+    if header_key(label) in {"horas extras 50%", "horas extras empresa 50%"}:
+        return "Horas Extras Empresa 50%"
+    return label
+
+
 def json_value(value):
     if value is None:
         return ""
@@ -184,7 +191,7 @@ def build_data(source: Path = SOURCE) -> dict:
         default=len(headers),
     )
     for idx in range(concept_start, concept_end):
-        label = clean(headers[idx])
+        label = canonical_concept_label(headers[idx])
         if label and label not in {"Suma Haberes", "Sueldo Líquido"}:
             concept_cols.append({"idx": idx, "label": label, "type": "haber"})
     discount_start = header_index.get("Cotizacion AFP")
@@ -206,6 +213,7 @@ def build_data(source: Path = SOURCE) -> dict:
         idx for idx, label in enumerate(headers[:absence_end])
         if any(term in header_key(label) for term in ("licencia", "permiso", "falta"))
     ]
+    hhee_indices = [col["idx"] for col in concept_cols if col["label"] == "Horas Extras Empresa 50%"]
 
     by_month_rows: dict[str, list[dict]] = defaultdict(list)
     concept_sums: dict[str, Counter] = defaultdict(Counter)
@@ -217,6 +225,11 @@ def build_data(source: Path = SOURCE) -> dict:
         period = clean(raw[header_index["Proceso"]])
         empresa = clean(raw[header_index["Nombre empresa"]])
         sede = clean(raw[header_index["Sede"]]) or "Sin sede"
+        concept_values: dict[str, float] = defaultdict(float)
+        for col in concept_cols:
+            value = num(raw[col["idx"]] if col["idx"] < len(raw) else 0)
+            if value:
+                concept_values[col["label"]] += value
         row = {
             "_raw": raw,
             "_raw_empresa": empresa,
@@ -235,18 +248,13 @@ def build_data(source: Path = SOURCE) -> dict:
             "sueldo_liquido": num(raw[header_index["Sueldo Líquido"]]),
             "total_descuentos": num(raw[header_index["Total Rebajas"]]),
             "gratificacion": num(raw[header_index["Gratificación"]]),
-            "hhee": num(raw[header_index["Horas Extras Empresa 50%"]]),
+            "hhee": sum(num(raw[i] if i < len(raw) else 0) for i in hhee_indices),
             "licencia_dias": sum(num(raw[i] if i < len(raw) else 0) for i in licencia_indices),
             "ausentismo_dias": sum(num(raw[i] if i < len(raw) else 0) for i in ausentismo_indices),
             "movilizacion": num(raw[header_index["Movilizacion"]]),
             "colacion": num(raw[header_index["Colacion"]]),
             "bono_manip_pae": num(raw[header_index["Bono Manipuladora Pae"]]) + num(raw[header_index["Bono Manipuladora Pae I"]]),
-            "concept_values": {
-                col["label"]: value
-                for col in concept_cols
-                for idx in [col["idx"]]
-                if (value := num(raw[idx] if idx < len(raw) else 0)) != 0
-            },
+            "concept_values": dict(concept_values),
         }
         by_month_rows[period].append(row)
         companies[empresa] += 1
@@ -533,7 +541,7 @@ def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[d
         default=len(headers),
     )
     for idx in range(concept_start, concept_end):
-        label = clean(headers[idx])
+        label = canonical_concept_label(headers[idx])
         if label and label not in {"Suma Haberes", "Sueldo Líquido"}:
             concept_cols.append({"idx": idx, "label": label, "type": "haber"})
     discount_start = header_index.get("Cotizacion AFP")
@@ -553,6 +561,7 @@ def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[d
         idx for idx, label in enumerate(headers[:absence_end])
         if any(term in header_key(label) for term in ("licencia", "permiso", "falta"))
     ]
+    hhee_indices = [col["idx"] for col in concept_cols if col["label"] == "Horas Extras Empresa 50%"]
 
     by_month: dict[str, list[dict]] = defaultdict(list)
     for raw in rows_iter:
@@ -561,12 +570,11 @@ def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[d
         period = period_id(raw[header_index["Proceso"]])
         empresa = clean(raw[header_index["Nombre empresa"]])
         sede = clean(raw[header_index["Sede"]]) or "Sin sede"
-        concepts = {
-            col["label"]: round(value)
-            for col in concept_cols
-            for idx in [col["idx"]]
-            if (value := num(raw[idx] if idx < len(raw) else 0)) != 0
-        }
+        concepts: dict[str, float] = defaultdict(float)
+        for col in concept_cols:
+            value = num(raw[col["idx"]] if col["idx"] < len(raw) else 0)
+            if value:
+                concepts[col["label"]] += value
         row = {
             "grupo": group_id,
             "_raw_empresa": empresa,
@@ -585,14 +593,14 @@ def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[d
             "sueldo_liquido": num(raw[header_index["Sueldo Líquido"]]),
             "total_descuentos": num(raw[header_index["Total Rebajas"]]),
             "gratificacion": num(raw[header_index["Gratificación"]]) if "Gratificación" in header_index else 0,
-            "hhee": num(raw[header_index["Horas Extras Empresa 50%"]]) if "Horas Extras Empresa 50%" in header_index else 0,
+            "hhee": sum(num(raw[i] if i < len(raw) else 0) for i in hhee_indices),
             "licencia_dias": sum(num(raw[i] if i < len(raw) else 0) for i in licencia_indices),
             "ausentismo_dias": sum(num(raw[i] if i < len(raw) else 0) for i in ausentismo_indices),
             "movilizacion": num(raw[header_index["Movilizacion"]]) if "Movilizacion" in header_index else 0,
             "colacion": num(raw[header_index["Colacion"]]) if "Colacion" in header_index else 0,
             "bono_manip_pae": 0,
             "raw": [json_value(v) for v in raw],
-            "concepts": concepts,
+            "concepts": {key: round(value) for key, value in concepts.items()},
         }
         row["fte"] = round(row["dias"] / 30, 2)
         by_month[period].append(row)
@@ -1929,6 +1937,7 @@ function parseNumber(value){
 }
 function cleanText(value){return String(value??'').trim();}
 function headerKey(value){return cleanText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
+function canonicalConceptLabel(value){const label=cleanText(value),key=headerKey(label);return key==='horas extras 50%'||key==='horas extras empresa 50%'?'Horas Extras Empresa 50%':label;}
 function headerIndex(headers){
   const out={};
   headers.forEach((h,i)=>{const raw=cleanText(h),key=headerKey(h);if(raw&&!out[raw])out[raw]=i;if(key&&!out[key])out[key]=i;});
@@ -2042,7 +2051,7 @@ function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||sta
   if(missing.length) throw new Error(`Faltan columnas: ${missing.join(', ')}`);
   const conceptCols=[];
   const conceptStart=idxOf(idx,'Sueldo Base')??22,conceptEnd=[idxOf(idx,'Cotizacion AFP'),idxOf(idx,'Sueldo Líquido')].filter(x=>x!==undefined).sort((a,b)=>a-b)[0]??headers.length;
-  for(let i=conceptStart;i<conceptEnd;i++){const label=cleanText(headers[i]);if(label&&headerKey(label)!=='suma haberes'&&headerKey(label)!=='sueldo liquido') conceptCols.push({idx:i,label,type:'haber'});}
+  for(let i=conceptStart;i<conceptEnd;i++){const label=canonicalConceptLabel(headers[i]);if(label&&headerKey(label)!=='suma haberes'&&headerKey(label)!=='sueldo liquido') conceptCols.push({idx:i,label,type:'haber'});}
   const discountStart=idxOf(idx,'Cotizacion AFP'),discountEnd=[idxOf(idx,'Aporte a CCAF'),idxOf(idx,'Mutual'),idxOf(idx,'Sueldo Líquido')].filter(x=>x!==undefined).sort((a,b)=>a-b)[0]??headers.length;
   if(discountStart!==undefined){for(let i=discountStart;i<discountEnd;i++){const label=cleanText(headers[i]);if(label&&headerKey(label)!=='total rebajas') conceptCols.push({idx:i,label,type:'descuento'});}}
   const byMonth={},conceptSums={},companies=new Set();
@@ -2053,14 +2062,14 @@ function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||sta
     const conceptValues={};
     conceptCols.forEach(c=>{
       const v=parseNumber(raw[c.idx]||0);
-      if(v!==0) conceptValues[c.label]=v;
+      if(v!==0) conceptValues[c.label]=(conceptValues[c.label]||0)+v;
       const monthSums=conceptSums[period]=conceptSums[period]||{};
       monthSums[c.label]=(monthSums[c.label]||0)+v;
     });
     const absenceEnd=idxOf(idx,'Sueldo Base')??headers.length;
     const row={_raw:headers.map((_,i)=>raw[i]??''),grupo:groupId,proceso:period,empresa,sede,area:cleanText(rawVal(raw,idx,'Area'))||sede,nombre:cleanText(rawVal(raw,idx,'Nombre')),rut:cleanText(rawVal(raw,idx,'Rut')),contrato:cleanText(rawVal(raw,idx,'Contrato')),cargo:cleanText(rawVal(raw,idx,'Cargo')),
       dias:numVal(raw,idx,'Días Trabajados'),sueldo_base:numVal(raw,idx,'Sueldo Base'),total_haberes:numVal(raw,idx,'Suma Haberes'),sueldo_liquido:numVal(raw,idx,'Sueldo Líquido'),
-      total_descuentos:numVal(raw,idx,'Total Rebajas'),gratificacion:numVal(raw,idx,'Gratificación'),hhee:numVal(raw,idx,'Horas Extras Empresa 50%'),
+      total_descuentos:numVal(raw,idx,'Total Rebajas'),gratificacion:numVal(raw,idx,'Gratificación'),hhee:conceptCols.filter(c=>c.label==='Horas Extras Empresa 50%').reduce((sum,c)=>sum+parseNumber(raw[c.idx]||0),0),
       licencia_dias:sumHeaders(raw,headers,k=>k.includes('licencia'),absenceEnd),ausentismo_dias:sumHeaders(raw,headers,k=>k.includes('licencia')||k.includes('permiso')||k.includes('falta'),absenceEnd),
       movilizacion:numVal(raw,idx,'Movilizacion'),colacion:numVal(raw,idx,'Colacion'),
       bono_manip_pae:numVal(raw,idx,'Bono Manipuladora Pae')+numVal(raw,idx,'Bono Manipuladora Pae I'),concept_values:conceptValues};
