@@ -15,6 +15,7 @@ from openpyxl import load_workbook
 BASE_DIR = Path(__file__).resolve().parents[1]
 SOURCE = Path(os.environ.get("REMUN_SOURCE", BASE_DIR / "data" / "detalle_remuneraciones.xlsx"))
 CRUX_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("crux_mensual_*.xlsx"))
+CRUX_HHEE_CORRECTION_SOURCE = Path(os.environ.get("CRUX_HHEE_CORRECTION_SOURCE", BASE_DIR / "data" / "crux_hhee_correccion_2026-08.xlsx"))
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 AVANZA_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("avanza_mensual_*.xlsx"))
 AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
@@ -71,6 +72,48 @@ def canonical_concept_label(value) -> str:
     if header_key(label) in {"horas extras 50%", "horas extras empresa 50%"}:
         return "Horas Extras Empresa 50%"
     return label
+
+
+def load_hhee_corrections(source: Path, month: str) -> dict[tuple[str, ...], dict[str, float]]:
+    wb = load_workbook(source, read_only=True, data_only=True)
+    ws = wb["Detalle"]
+    rows_iter = ws.iter_rows(values_only=True)
+    for _ in range(HEADER_ROW_INDEX - 1):
+        next(rows_iter)
+    headers = list(next(rows_iter))
+    header_index = {clean(h): i for i, h in enumerate(headers) if h}
+    key_fields = ("Proceso", "Nombre empresa", "Rut", "Contrato", "Sede")
+    missing = [name for name in key_fields if name not in header_index]
+    if missing:
+        wb.close()
+        raise ValueError(f"Faltan columnas para cruzar corrección HHEE: {', '.join(missing)}")
+    hhee_fields = [
+        (idx, header_key(label))
+        for idx, label in enumerate(headers)
+        if canonical_concept_label(label) == "Horas Extras Empresa 50%"
+    ]
+    if not hhee_fields:
+        wb.close()
+        raise ValueError("No encontré columnas HHEE en el archivo de corrección")
+
+    corrections: dict[tuple[str, ...], dict[str, float]] = {}
+    for raw in rows_iter:
+        if not raw or not raw[0] or raw[0] == "Empresa":
+            continue
+        if clean(raw[header_index["Proceso"]]) != month:
+            continue
+        key = tuple(clean(raw[header_index[name]]) for name in key_fields)
+        if key in corrections:
+            wb.close()
+            raise ValueError("Encontré registros duplicados al cruzar la corrección HHEE")
+        values: dict[str, float] = defaultdict(float)
+        for idx, alias in hhee_fields:
+            values[alias] += num(raw[idx] if idx < len(raw) else 0)
+        corrections[key] = dict(values)
+    wb.close()
+    if not corrections:
+        raise ValueError(f"No encontré registros para aplicar la corrección HHEE de {month}")
+    return corrections
 
 
 def json_value(value):
@@ -174,7 +217,7 @@ def group_concepts(rows: list[dict], concept_cols: list[dict]) -> dict:
     }
 
 
-def build_data(source: Path = SOURCE) -> dict:
+def build_data(source: Path = SOURCE, hhee_correction_source: Path | None = None, hhee_correction_month: str = "2026-08") -> dict:
     wb = load_workbook(source, read_only=True, data_only=True)
     ws = wb["Detalle"]
     rows_iter = ws.iter_rows(values_only=True)
@@ -214,6 +257,13 @@ def build_data(source: Path = SOURCE) -> dict:
         if any(term in header_key(label) for term in ("licencia", "permiso", "falta"))
     ]
     hhee_indices = [col["idx"] for col in concept_cols if col["label"] == "Horas Extras Empresa 50%"]
+    hhee_corrections = load_hhee_corrections(hhee_correction_source, hhee_correction_month) if hhee_correction_source else {}
+    corrected_hhee_aliases = {header_key(headers[idx]): idx for idx in hhee_indices}
+    correction_aliases = set().union(*(values.keys() for values in hhee_corrections.values())) if hhee_corrections else set()
+    if correction_aliases - corrected_hhee_aliases.keys():
+        wb.close()
+        raise ValueError("El archivo base no contiene todas las columnas HHEE de la corrección")
+    used_hhee_corrections = set()
 
     by_month_rows: dict[str, list[dict]] = defaultdict(list)
     concept_sums: dict[str, Counter] = defaultdict(Counter)
@@ -225,6 +275,23 @@ def build_data(source: Path = SOURCE) -> dict:
         period = clean(raw[header_index["Proceso"]])
         empresa = clean(raw[header_index["Nombre empresa"]])
         sede = clean(raw[header_index["Sede"]]) or "Sin sede"
+        if period == hhee_correction_month and hhee_corrections:
+            key = (
+                period,
+                empresa,
+                clean(raw[header_index["Rut"]]),
+                clean(raw[header_index["Contrato"]]),
+                clean(raw[header_index["Sede"]]),
+            )
+            if key not in hhee_corrections:
+                wb.close()
+                raise ValueError("No pude emparejar todas las filas de agosto con la corrección HHEE")
+            corrected = hhee_corrections[key]
+            raw = list(raw)
+            for alias, idx in corrected_hhee_aliases.items():
+                raw[idx] = corrected.get(alias, 0)
+            raw = tuple(raw)
+            used_hhee_corrections.add(key)
         concept_values: dict[str, float] = defaultdict(float)
         for col in concept_cols:
             value = num(raw[col["idx"]] if col["idx"] < len(raw) else 0)
@@ -261,6 +328,11 @@ def build_data(source: Path = SOURCE) -> dict:
         for col in concept_cols:
             idx, concept = col["idx"], col["label"]
             concept_sums[period][concept] += num(raw[idx] if idx < len(raw) else 0)
+
+    if hhee_corrections and used_hhee_corrections != hhee_corrections.keys():
+        wb.close()
+        raise ValueError("La corrección HHEE contiene filas de agosto que no están en el archivo base")
+    wb.close()
 
     months = sorted(by_month_rows)
     data = {
@@ -608,7 +680,7 @@ def detail_source_details(source: Path, group_id: str) -> tuple[dict[str, list[d
 
 
 def build_multi_data() -> dict:
-    crux = build_data()
+    crux = build_data(hhee_correction_source=CRUX_HHEE_CORRECTION_SOURCE)
     details_by_month: dict[str, list[dict]] = defaultdict(list)
     crux_rows_by_month = dict(crux["details"])
     crux_month_headers = {
@@ -652,9 +724,12 @@ def build_multi_data() -> dict:
         gid = group["id"]
         months_by_group[gid] = [{"id": m, "label": month_label(m)} for m in months if any(r.get("grupo") == gid for r in details_by_month[m])]
 
+    source_names = [SOURCE.name, *(path.name for path in CRUX_MONTH_SOURCES)]
+    if CRUX_HHEE_CORRECTION_SOURCE.exists():
+        source_names.append(CRUX_HHEE_CORRECTION_SOURCE.name)
     data = {
         "metadata": {
-            "source": " + ".join([SOURCE.name, *(path.name for path in CRUX_MONTH_SOURCES), AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA"]),
+            "source": " + ".join([*source_names, AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA"]),
             "generated_from": "Detalle multi grupo",
             "month_count": len(months),
             "record_count": sum(len(v) for v in details_by_month.values()),
