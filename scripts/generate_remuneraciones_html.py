@@ -20,11 +20,13 @@ CRUX_HHEE_CORRECTION_SOURCE: Path | None = None
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 AVANZA_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("avanza_mensual_*.xlsx"))
 AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
+NOW_SOURCE = Path(os.environ.get("NOW_SOURCE", BASE_DIR / "data" / "now_detalle_remuneraciones.xlsx"))
 OUTPUT = Path(os.environ.get("REMUN_OUTPUT", BASE_DIR / "index.html"))
 GROUP_OUTPUTS = {
     "CRUX FOOD": BASE_DIR / "crux-food" / "index.html",
     "Grupo Avanza": BASE_DIR / "grupo-avanza" / "index.html",
     "Grupo AVESA": BASE_DIR / "grupo-avesa" / "index.html",
+    "Grupo NOW": BASE_DIR / "grupo-now" / "index.html",
 }
 ARTBPO_OUTPUT = BASE_DIR / "artbpo" / "index.html"
 
@@ -709,16 +711,21 @@ def build_multi_data() -> dict:
     avesa_rows, avesa_concept_types, avesa_headers = detail_source_details(AVESA_SOURCE, "Grupo AVESA")
     for month, rows in avesa_rows.items():
         details_by_month[month].extend(rows)
+    now_rows, now_concept_types, now_headers = detail_source_details(NOW_SOURCE, "Grupo NOW")
+    for month, rows in now_rows.items():
+        details_by_month[month].extend(rows)
 
     months = sorted(details_by_month)
     concept_types = crux_concept_types
     concept_types.update(avanza_concept_types)
     concept_types.update(avesa_concept_types)
+    concept_types.update(now_concept_types)
     concept_options = sorted({c for rows in details_by_month.values() for row in rows for c in row.get("concepts", {})})
     group_options = [
         {"id": "CRUX FOOD", "label": "CRUX FOOD"},
         {"id": "Grupo Avanza", "label": "Grupo Avanza"},
         {"id": "Grupo AVESA", "label": "Grupo AVESA"},
+        {"id": "Grupo NOW", "label": "Grupo NOW"},
     ]
     months_by_group = {}
     for group in group_options:
@@ -730,7 +737,7 @@ def build_multi_data() -> dict:
         source_names.append(CRUX_HHEE_CORRECTION_SOURCE.name)
     data = {
         "metadata": {
-            "source": " + ".join([*source_names, AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA"]),
+            "source": " + ".join([*source_names, AVANZA_SOURCE.name if AVANZA_SOURCE.exists() else "sin Avanza", *(path.name for path in AVANZA_MONTH_SOURCES), AVESA_SOURCE.name if AVESA_SOURCE.exists() else "sin AVESA", NOW_SOURCE.name if NOW_SOURCE.exists() else "sin NOW"]),
             "generated_from": "Detalle multi grupo",
             "month_count": len(months),
             "record_count": sum(len(v) for v in details_by_month.values()),
@@ -740,6 +747,7 @@ def build_multi_data() -> dict:
             "avanza_headers": avanza_headers,
             "avanza_month_headers": avanza_month_headers,
             "avesa_headers": avesa_headers,
+            "now_headers": now_headers,
             "show_audit": False,
         },
         "group_options": group_options,
@@ -1689,7 +1697,10 @@ const avanzaDownloadReports=[
 const avesaDownloadReports=[
   {id:'avesa_general',name:'Grupo AVESA',file:'Revision_General_AVESA',rule:'Todas las empresas y áreas de Grupo AVESA',filter:r=>true},
 ];
-function activeDownloadReports(){return state.grupo==='Grupo Avanza'?avanzaDownloadReports:state.grupo==='Grupo AVESA'?avesaDownloadReports:downloadReports;}
+const nowDownloadReports=[
+  {id:'now_general',name:'Grupo NOW',file:'Revision_General_NOW',rule:'Todas las empresas y áreas de Grupo NOW',filter:r=>true},
+];
+function activeDownloadReports(){return state.grupo==='Grupo Avanza'?avanzaDownloadReports:state.grupo==='Grupo AVESA'?avesaDownloadReports:state.grupo==='Grupo NOW'?nowDownloadReports:downloadReports;}
 function norm(s){return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
 function isPakarati(s){const x=norm(s);return x.includes('pakarati')||x.includes('claudia lorena');}
 function isAlianza(s){return norm(s).includes('alianza');}
@@ -1751,12 +1762,13 @@ function avanzaMonthRow(r){
 function monthRowsAoA(rows,month){
   const isAvanza=rows.some(r=>r.grupo==='Grupo Avanza')&&!rows.some(r=>r.grupo==='CRUX FOOD');
   const isAvesa=rows.some(r=>r.grupo==='Grupo AVESA')&&!rows.some(r=>r.grupo==='CRUX FOOD'||r.grupo==='Grupo Avanza');
+  const isNow=rows.some(r=>r.grupo==='Grupo NOW')&&!rows.some(r=>r.grupo==='CRUX FOOD'||r.grupo==='Grupo Avanza'||r.grupo==='Grupo AVESA');
   if(isAvanza){
     const headers=DATA.metadata.avanza_month_headers?.[month];
     if(headers?.length&&rows.every(r=>Array.isArray(r.raw))) return [headers,...rows.map(r=>headers.map((_,i)=>r.raw[i]??''))];
     return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
   }
-  const headers=isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.crux_month_headers?.[month]?.length?DATA.metadata.crux_month_headers[month]:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']));
+  const headers=isNow&&DATA.metadata.now_headers?.length?DATA.metadata.now_headers:isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.crux_month_headers?.[month]?.length?DATA.metadata.crux_month_headers[month]:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']));
   return [headers,...rows.map(r=>{
     if(r.raw?.length) return headers.map((_,i)=>r.raw[i]??'');
     const fallback=['',r.empresa,'',month,r.nombre,r.rut,r.contrato,r.sede,r.dias,r.cargo];
@@ -2155,7 +2167,7 @@ function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||sta
   conceptCols.forEach(c=>{conceptTypes[c.label]=c.type;});
   const months=Object.keys(byMonth).sort();
   const groupMeta=DATA.group_options?.find(g=>g.id===groupId)||{id:groupId,label:groupId};
-  const headerKeyName=groupId==='Grupo AVESA'?'avesa_headers':groupId==='Grupo Avanza'?'avanza_headers':'raw_headers';
+  const headerKeyName=groupId==='Grupo AVESA'?'avesa_headers':groupId==='Grupo Avanza'?'avanza_headers':groupId==='Grupo NOW'?'now_headers':'raw_headers';
   const metadata={source:fileName,generated_from:'Detalle',month_count:months.length,record_count:Object.values(byMonth).reduce((a,r)=>a+r.length,0),company_count:companies.size,raw_headers:headers,show_audit:false};
   metadata[headerKeyName]=headers;
   if(DATA.metadata?.locked_group) metadata.locked_group=groupId;
