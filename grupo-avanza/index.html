@@ -84,7 +84,7 @@ canvas{max-width:100%}
 <header class="header">
   <div class="h-brand">
     <div class="h-icon">MG</div>
-    <div><div class="h-name">Remuneraciones</div><div class="h-sub">Empresa / Sede</div></div>
+    <div><div class="h-name">Remuneraciones</div><div class="h-sub" data-hier-path="2">Empresa / Sede</div></div>
   </div>
   <span class="chip chip-b" id="chipBase"></span><span class="chip-vs">vs</span><span class="chip chip-g" id="chipComp"></span>
   <span style="font-size:11.5px;color:var(--text3);max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" id="sourceBadge"></span>
@@ -111,7 +111,7 @@ canvas{max-width:100%}
     <div class="ctrl"><label>Mes base</label><select class="fsel" id="selBase"></select></div>
     <div class="ctrl"><label>Mes comparación</label><select class="fsel" id="selComp"></select></div>
     <div class="ctrl"><label>Empresa</label><select class="fsel" id="selEmpresa"><option value="">Todas las empresas</option></select></div>
-    <div class="ctrl"><label>Sede</label><select class="fsel" id="selSede"><option value="">Todas las sedes</option></select></div>
+    <div class="ctrl"><label data-hier-unit>Sede</label><select class="fsel" id="selSede"><option value="" data-hier-all>Todas las sedes</option></select></div>
     <div class="ctrl"><label>Cargar archivo</label><label class="file-pill"><span id="fileUploadLabel">Seleccionar archivo</span><b>+</b><input id="fileUpload" type="file" accept=".xlsx,.xls" onchange="handleFileUpload(event)"></label></div>
   </div>
 
@@ -120,13 +120,13 @@ canvas{max-width:100%}
     <div class="insight-strip" id="executiveNarrative"></div>
     <div class="exec-summary" id="executiveSummary"></div>
     <div class="panel">
-      <div class="panel-hd"><div><div class="panel-title">División por Empresa</div><div class="panel-sub">Expande una empresa para ver sus sedes; click en una fila abre el detalle</div></div></div>
-      <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede</th><th class="nr">Dotación</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th><th class="nr">Sueldo Líquido</th><th class="nr">Sueldo Base</th><th class="nr">Δ Haberes</th></tr></thead><tbody id="companyDivisionBody"></tbody></table></div>
+      <div class="panel-hd"><div><div class="panel-title">División por Empresa</div><div class="panel-sub">Expande una empresa para ver sus <span data-hier-plural>sedes</span>; click en una fila abre el detalle</div></div></div>
+      <div class="tw sy"><table><thead><tr><th></th><th data-hier-path="2">Empresa / Sede</th><th class="nr">Dotación</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th><th class="nr">Sueldo Líquido</th><th class="nr">Sueldo Base</th><th class="nr">Δ Haberes</th></tr></thead><tbody id="companyDivisionBody"></tbody></table></div>
     </div>
     <div class="kpi-grid" id="kpiGrid"></div>
     <div class="panel" id="dashboardKpiPanel">
       <div class="panel-hd"><div><div class="panel-title" id="dashboardKpiTitle">Detalle KPI</div><div class="panel-sub" id="dashboardKpiSub"></div></div></div>
-      <div class="tw sy"><table><thead><tr><th>Empresa</th><th>Sede</th><th>Trabajador</th><th>Cargo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr" id="dashboardKpiMetricHead">Valor</th></tr></thead><tbody id="dashboardKpiBody"></tbody></table></div>
+      <div class="tw sy"><table><thead><tr><th>Empresa</th><th data-hier-unit>Sede</th><th>Trabajador</th><th>Cargo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr" id="dashboardKpiMetricHead">Valor</th></tr></thead><tbody id="dashboardKpiBody"></tbody></table></div>
     </div>
     <div class="hi-grid">
       <div class="panel"><div class="panel-hd"><div><div class="panel-title">Totales del período</div><div class="panel-sub" id="totalsSub"></div></div></div><div class="tw"><table class="tot-table"><tbody id="totalsBody"></tbody></table></div></div>
@@ -148,24 +148,24 @@ canvas{max-width:100%}
   </section>
 
   <section class="sec" id="sec-auditoria">
-    <div class="sec-hd"><div class="sec-title">Auditoría</div><div class="sec-sub" id="auditSub">Controles sobre el mes comparación y filtros Empresa/Sede</div></div>
+    <div class="sec-hd"><div class="sec-title">Auditoría</div><div class="sec-sub" id="auditSub">Controles sobre el mes comparación y filtros Empresa/<span data-hier-unit>Sede</span></div></div>
     <div class="panel">
       <div class="panel-hd"><div><div class="panel-title">Reglas auditadas</div><div class="panel-sub">Controles activos según grupo y empresa</div></div></div>
       <div class="tw"><table><thead><tr><th>Regla</th><th>Aplicación</th><th>Validación</th></tr></thead><tbody id="auditRuleBody"></tbody></table></div>
     </div>
     <div class="rg" id="auditGrid"></div>
     <div class="panel">
-      <div class="panel-hd"><div><div class="panel-title">Personas con 0 días y haberes distintos de cero</div><div class="panel-sub">Click en una fila abre el detalle filtrado por sede</div></div></div>
-      <div class="tw sy"><table><thead><tr><th>Empresa</th><th>Sede</th><th>RUT</th><th>Nombre</th><th>Cargo</th><th class="nr">Días</th><th class="nr">Suma Haberes</th><th class="nr">Líquido</th></tr></thead><tbody id="auditZeroBody"></tbody></table></div>
+      <div class="panel-hd"><div><div class="panel-title">Personas con 0 días y haberes distintos de cero</div><div class="panel-sub">Click en una fila abre el detalle según la unidad seleccionada</div></div></div>
+      <div class="tw sy"><table><thead><tr><th>Empresa</th><th data-hier-unit>Sede</th><th>RUT</th><th>Nombre</th><th>Cargo</th><th class="nr">Días</th><th class="nr">Suma Haberes</th><th class="nr">Líquido</th></tr></thead><tbody id="auditZeroBody"></tbody></table></div>
     </div>
     <div class="g2">
       <div class="panel">
         <div class="panel-hd"><div><div class="panel-title">Manipulador (a) PAE con sueldo base $539.000 o proporcional</div><div class="panel-sub">Esperado = 539.000 × días / 30</div></div></div>
-        <div class="tw sy"><table><thead><tr><th>Empresa</th><th>Sede</th><th class="nr">Total</th><th class="nr">OK</th><th class="nr">Diferencias</th><th class="nr">% OK</th></tr></thead><tbody id="auditBaseBody"></tbody><tfoot id="auditBaseFoot" style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)"></tfoot></table></div>
+        <div class="tw sy"><table><thead><tr><th>Empresa</th><th data-hier-unit>Sede</th><th class="nr">Total</th><th class="nr">OK</th><th class="nr">Diferencias</th><th class="nr">% OK</th></tr></thead><tbody id="auditBaseBody"></tbody><tfoot id="auditBaseFoot" style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)"></tfoot></table></div>
       </div>
       <div class="panel">
-        <div class="panel-hd"><div><div class="panel-title">Manipulador (a) PAE con Bono Manipuladora PAE</div><div class="panel-sub">Monto agregado por sede</div></div></div>
-        <div class="tw sy"><table><thead><tr><th>Empresa</th><th>Sede</th><th class="nr">Personas</th><th class="nr">Con bono</th><th class="nr">% con bono</th><th class="nr">Monto bono</th></tr></thead><tbody id="auditBonoBody"></tbody><tfoot id="auditBonoFoot" style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)"></tfoot></table></div>
+        <div class="panel-hd"><div><div class="panel-title">Manipulador (a) PAE con Bono Manipuladora PAE</div><div class="panel-sub">Monto agregado por <span data-hier-unit-lower>sede</span></div></div></div>
+        <div class="tw sy"><table><thead><tr><th>Empresa</th><th data-hier-unit>Sede</th><th class="nr">Personas</th><th class="nr">Con bono</th><th class="nr">% con bono</th><th class="nr">Monto bono</th></tr></thead><tbody id="auditBonoBody"></tbody><tfoot id="auditBonoFoot" style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)"></tfoot></table></div>
       </div>
     </div>
   </section>
@@ -185,7 +185,7 @@ canvas{max-width:100%}
       <input class="srch" id="srch" placeholder="Buscar nombre, RUT, cargo, empresa o sede..." oninput="renderDetail()">
       <select class="fsel" id="detMonth" onchange="refreshDetailFilters();renderDetail()"></select>
       <select class="fsel" id="detEmpresa" onchange="refreshDetailFilters();renderDetail()"><option value="">Todas las empresas</option></select>
-      <select class="fsel" id="detSede" onchange="refreshDetailFilters();renderDetail()"><option value="">Todas las sedes</option></select>
+      <select class="fsel" id="detSede" onchange="refreshDetailFilters();renderDetail()"><option value="" data-hier-all>Todas las sedes</option></select>
       <select class="fsel" id="detCargo" onchange="renderDetail()"><option value="">Todos los cargos</option></select>
       <select class="fsel" id="detDias" onchange="renderDetail()"><option value="">Todos los días</option><option value="0">0 días</option><option value="p">Parciales (&lt;30)</option><option value="f">30 días</option></select>
       <select class="fsel" id="detConcept" onchange="renderDetail()"><option value="">Todos los conceptos</option></select>
@@ -197,23 +197,23 @@ canvas{max-width:100%}
 
   <section class="sec" id="sec-beta">
     <div class="sec-hd"><div class="sec-title">Beta</div><div class="sec-sub">Comparativo mensual y análisis de desviaciones</div></div>
-    <div class="sec-hd"><div class="sec-title">KPIs Operacionales</div><div class="sec-sub" id="kpiOpsSub">Rotación, ausentismo y licencias con jerarquía Empresa / Sede / Trabajador</div></div>
+    <div class="sec-hd"><div class="sec-title">KPIs Operacionales</div><div class="sec-sub" id="kpiOpsSub">Rotación, ausentismo y licencias con jerarquía <span data-hier-path="3">Empresa / Sede / Trabajador</span></div></div>
     <div class="rg" id="kpiOpsGrid"></div>
     <div class="panel">
       <div class="panel-hd"><div><div class="panel-title">Rotación mensual</div><div class="panel-sub">Ingresos y egresos entre mes base y mes comparación</div></div></div>
-      <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th>Tipo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th></tr></thead><tbody id="kpiRotBody"></tbody></table></div>
+      <div class="tw sy"><table><thead><tr><th></th><th data-hier-path="3">Empresa / Sede / Trabajador</th><th>Tipo</th><th class="nr">Días</th><th class="nr">FTE</th><th class="nr">Suma Haberes</th></tr></thead><tbody id="kpiRotBody"></tbody></table></div>
     </div>
     <div class="g2">
       <div class="panel">
         <div class="panel-hd"><div><div class="panel-title">Ausentismo</div><div class="panel-sub">Licencias, permisos y faltas del mes comparación</div></div></div>
-        <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th class="nr">Días ausentismo</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiAusBody"></tbody></table></div>
+        <div class="tw sy"><table><thead><tr><th></th><th data-hier-path="3">Empresa / Sede / Trabajador</th><th class="nr">Días ausentismo</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiAusBody"></tbody></table></div>
       </div>
       <div class="panel">
         <div class="panel-hd"><div><div class="panel-title">Licencias</div><div class="panel-sub">Días de licencia médica y accidente</div></div></div>
-        <div class="tw sy"><table><thead><tr><th></th><th>Empresa / Sede / Trabajador</th><th class="nr">Días licencia</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiLicBody"></tbody></table></div>
+        <div class="tw sy"><table><thead><tr><th></th><th data-hier-path="3">Empresa / Sede / Trabajador</th><th class="nr">Días licencia</th><th class="nr">Días trabajados</th><th class="nr">FTE</th></tr></thead><tbody id="kpiLicBody"></tbody></table></div>
       </div>
     </div>
-    <div class="sec-hd" style="margin-top:26px"><div class="sec-title">Comparativo Mensual</div><div class="sec-sub">Variación por Empresa/Sede y conceptos seleccionados</div></div>
+    <div class="sec-hd" style="margin-top:26px"><div class="sec-title">Comparativo Mensual</div><div class="sec-sub">Variación por <span data-hier-path="2">Empresa / Sede</span> y conceptos seleccionados</div></div>
     <div class="controlbar">
       <div class="ctrl"><label>Agregar columna</label><select class="fsel" id="cmpMetricAdd"></select></div>
       <button class="btn" type="button" onclick="addCompareMetric()">Agregar concepto</button>
@@ -222,11 +222,11 @@ canvas{max-width:100%}
     <div class="cmp-banner" id="cmpBanner"></div>
     <div class="panel"><div class="tw sy"><table><thead><tr id="cmpHead"></tr></thead><tbody id="cmpBody"></tbody><tfoot id="cmpFoot" style="background:var(--surface2);font-weight:700;border-top:2px solid var(--border2)"></tfoot></table></div></div>
 
-    <div class="sec-hd" style="margin-top:26px"><div class="sec-title">Análisis de Desviaciones</div><div class="sec-sub">Brechas por Empresa/Sede, conceptos y ratios operacionales</div></div>
+    <div class="sec-hd" style="margin-top:26px"><div class="sec-title">Análisis de Desviaciones</div><div class="sec-sub">Brechas por <span data-hier-path="2">Empresa / Sede</span>, conceptos y ratios operacionales</div></div>
     <div class="rg" id="devGrid"></div>
     <div class="g2">
-      <div class="panel"><div class="panel-hd"><div><div class="panel-title">Mayores alzas por Empresa/Sede</div><div class="panel-sub" id="devUpSub"></div></div></div><div class="tw sy"><table><thead><tr><th>Empresa/Sede</th><th class="nr">Base</th><th class="nr">Comparación</th><th class="nr">Δ</th><th class="nr">Δ%</th><th class="nr">Δ Dot.</th></tr></thead><tbody id="devUpBody"></tbody></table></div></div>
-      <div class="panel"><div class="panel-hd"><div><div class="panel-title">Mayores bajas por Empresa/Sede</div><div class="panel-sub" id="devDownSub"></div></div></div><div class="tw sy"><table><thead><tr><th>Empresa/Sede</th><th class="nr">Base</th><th class="nr">Comparación</th><th class="nr">Δ</th><th class="nr">Δ%</th><th class="nr">Δ Dot.</th></tr></thead><tbody id="devDownBody"></tbody></table></div></div>
+      <div class="panel"><div class="panel-hd"><div><div class="panel-title">Mayores alzas por <span data-hier-path="2">Empresa / Sede</span></div><div class="panel-sub" id="devUpSub"></div></div></div><div class="tw sy"><table><thead><tr><th data-hier-path="2">Empresa / Sede</th><th class="nr">Base</th><th class="nr">Comparación</th><th class="nr">Δ</th><th class="nr">Δ%</th><th class="nr">Δ Dot.</th></tr></thead><tbody id="devUpBody"></tbody></table></div></div>
+      <div class="panel"><div class="panel-hd"><div><div class="panel-title">Mayores bajas por <span data-hier-path="2">Empresa / Sede</span></div><div class="panel-sub" id="devDownSub"></div></div></div><div class="tw sy"><table><thead><tr><th data-hier-path="2">Empresa / Sede</th><th class="nr">Base</th><th class="nr">Comparación</th><th class="nr">Δ</th><th class="nr">Δ%</th><th class="nr">Δ Dot.</th></tr></thead><tbody id="devDownBody"></tbody></table></div></div>
     </div>
     <div class="g2">
       <div class="panel"><div class="panel-hd"><div><div class="panel-title">Desviaciones por concepto</div><div class="panel-sub">Top drivers positivos y negativos</div></div></div><div class="tw sy"><table><thead><tr><th>Concepto</th><th class="nr">Base</th><th class="nr">Comparación</th><th class="nr">Δ</th><th class="nr">Δ%</th></tr></thead><tbody id="devConceptBody"></tbody></table></div></div>
@@ -289,7 +289,21 @@ const metricLabels={
 function metricName(key){return metricLabels[key]||Object.fromEntries(metricOptions())[key]||key}
 function isConceptMetric(key=state.metric){return key.startsWith('concept::')}
 function conceptName(key=state.metric){return key.replace('concept::','')}
-function filterLabel(){return [state.grupo||'Todos los grupos',state.empresa||'Todas las empresas',state.sede||'Todas las sedes'].join(' · ')}
+function hierarchyUnit(){return state.grupo==='Grupo NOW'?'Centro de costo':'Sede'}
+function hierarchyUnitLower(){return state.grupo==='Grupo NOW'?'centro de costo':'sede'}
+function hierarchyPlural(){return state.grupo==='Grupo NOW'?'centros de costo':'sedes'}
+function hierarchyAll(){return state.grupo==='Grupo NOW'?'Todos los centros de costo':'Todas las sedes'}
+function hierarchyPath(levels=2){return ['Empresa',hierarchyUnit(),...(levels>2?['Trabajador']:[])].join(' / ')}
+function hierarchyMissing(){return state.grupo==='Grupo NOW'?'Sin centro de costo destacado':'Sin sede destacada'}
+function applyGroupHierarchyLabels(){
+  document.querySelectorAll('[data-hier-unit]').forEach(el=>{el.textContent=hierarchyUnit()});
+  document.querySelectorAll('[data-hier-unit-lower]').forEach(el=>{el.textContent=hierarchyUnitLower()});
+  document.querySelectorAll('[data-hier-plural]').forEach(el=>{el.textContent=hierarchyPlural()});
+  document.querySelectorAll('[data-hier-all]').forEach(el=>{el.textContent=hierarchyAll()});
+  document.querySelectorAll('[data-hier-path]').forEach(el=>{el.textContent=hierarchyPath(+el.dataset.hierPath||2)});
+  srch.placeholder=`Buscar nombre, RUT, cargo, empresa o ${hierarchyUnitLower()}...`;
+}
+function filterLabel(){return [state.grupo||'Todos los grupos',state.empresa||'Todas las empresas',state.sede||hierarchyAll()].join(' · ')}
 function inGroup(r){return !state.grupo||r.grupo===state.grupo}
 function selectedRows(month=state.comp){
   return (DATA.groups.empresa_sede[month] || []).filter(r=>inGroup(r)&&(!state.empresa||r.empresa===state.empresa)&&(!state.sede||r.sede===state.sede));
@@ -358,6 +372,7 @@ function chooseGroup(grupo){
 }
 function initSelectors(){
   const months=groupMonths(state.grupo);
+  applyGroupHierarchyLabels();
   setOptions(selGrupo, DATA.group_options, state.grupo);
   selGrupo.closest('.ctrl').style.display=lockedGroup()?'none':'';
   groupSwitchBtn.style.display=lockedGroup()?'none':'';
@@ -384,7 +399,7 @@ function fillGlobalFilters(){
   selEmpresa.innerHTML='<option value="">Todas las empresas</option>'+empresas.map(e=>`<option value="${e}">${e}</option>`).join('');
   if(empresas.includes(state.empresa)) selEmpresa.value=state.empresa; else state.empresa='';
   const sedes=[...new Set(rows.filter(r=>!state.empresa||r.empresa===state.empresa).map(r=>r.sede))].sort();
-  selSede.innerHTML='<option value="">Todas las sedes</option>'+sedes.map(s=>`<option value="${s}">${s}</option>`).join('');
+  selSede.innerHTML=`<option value="">${hierarchyAll()}</option>`+sedes.map(s=>`<option value="${s}">${s}</option>`).join('');
   if(sedes.includes(state.sede)) selSede.value=state.sede; else state.sede='';
 }
 function fillMetricOptions(){
@@ -512,7 +527,7 @@ function renderExecutiveSummary(f,m,mov){
     {primary:true,label:'Resultado del mes',value:`${sign(habDif)}${M(habDif)}`,sub:`Suma haberes · ${label(state.base)} → ${label(state.comp)}`,delta:`${sign(deltaPct(f.total_haberes,m.total_haberes))}${deltaPct(f.total_haberes,m.total_haberes).toFixed(1)}% vs mes base`,tone:habDif},
     {label:'Dotación',value:N(m.dotacion),sub:`${N(f.dotacion)} en ${label(state.base)}`,delta:`${sign(dotDif)}${N(dotDif)} personas · FTE ${sign(fteDif)}${fteDif.toFixed(2)}`,tone:dotDif},
     {label:'Movimientos',value:`${N(mov.ingresos)} / ${N(mov.egresos)}`,sub:'Ingresos / egresos del mes',delta:`Neto ${sign(mov.ingresos-mov.egresos)}${N(mov.ingresos-mov.egresos)}`,tone:mov.ingresos-mov.egresos},
-    {label:'Mayor explicación',value:topConcept?`${sign(topConcept.dif)}${M(topConcept.dif)}`:'--',sub:topConcept?.concepto||'Sin diferencias visibles',delta:topGroup?`Mayor sede: ${topGroup.key}`:'Sin sede destacada',tone:topConcept?.dif||0},
+    {label:'Mayor explicación',value:topConcept?`${sign(topConcept.dif)}${M(topConcept.dif)}`:'--',sub:topConcept?.concepto||'Sin diferencias visibles',delta:topGroup?`Mayor ${hierarchyUnitLower()}: ${topGroup.key}`:hierarchyMissing(),tone:topConcept?.dif||0},
   ];
   executiveSummary.innerHTML=cards.map(c=>`<div class="exec-card ${c.primary?'primary':''}"><div><div class="exec-label">${c.label}</div><div class="exec-value ${c.primary?'':cls(c.tone)}">${c.value}</div><div class="exec-sub">${c.sub}</div></div><div class="exec-delta ${c.primary?'':cls(c.tone)}">${c.delta}</div></div>`).join('');
 }
@@ -577,8 +592,8 @@ function renderTotalsHighlights(){
     {t:'Variación neta de haberes',s:`${label(state.base)} → ${label(state.comp)}`,v:`${sign(habDif)}${M(habDif)}`,c:habDif},
     {t:'Variación de líquido',s:`Impacto final en pagos`,v:`${sign(liqDif)}${M(liqDif)}`,c:liqDif},
     {t:'Cambio de dotación',s:`Trabajadores del período`,v:`${sign(dotDif)}${N(dotDif)}`,c:dotDif},
-    {t:'Mayor alza Empresa/Sede',s:topUp?.key||'Sin datos',v:topUp?`${sign(topUp.dif)}${M(topUp.dif)}`:'--',c:topUp?.dif||0},
-    {t:'Mayor baja Empresa/Sede',s:topDown?.key||'Sin datos',v:topDown?`${sign(topDown.dif)}${M(topDown.dif)}`:'--',c:topDown?.dif||0},
+    {t:`Mayor alza ${hierarchyPath()}`,s:topUp?.key||'Sin datos',v:topUp?`${sign(topUp.dif)}${M(topUp.dif)}`:'--',c:topUp?.dif||0},
+    {t:`Mayor baja ${hierarchyPath()}`,s:topDown?.key||'Sin datos',v:topDown?`${sign(topDown.dif)}${M(topDown.dif)}`:'--',c:topDown?.dif||0},
     {t:'Concepto más explicativo',s:topConcept?.concepto||'Sin datos',v:topConcept?`${sign(topConcept.dif)}${M(topConcept.dif)}`:'--',c:topConcept?.dif||0},
   ].map(h=>`<div class="hi"><div class="hi-main"><div class="hi-title">${h.t}</div><div class="hi-sub">${h.s}</div></div><div class="hi-val ${cls(h.c)}">${h.v}</div></div>`).join('');
 }
@@ -612,7 +627,7 @@ function renderComparativo(){
   const primary=state.compareMetrics[0]||'total_haberes';
   const dif=metricValueForKpi(state.comp,primary)-metricValueForKpi(state.base,primary);
   cmpBanner.innerHTML=`<div><div class="cbl">Diferencia ${metricName(primary)}</div><div class="cbv">${sign(dif)}${fmt(primary,dif)}</div><div class="cbs">${label(state.base)} → ${label(state.comp)} · ${sign(deltaPct(metricValueForKpi(state.base,primary),metricValueForKpi(state.comp,primary)))}${deltaPct(metricValueForKpi(state.base,primary),metricValueForKpi(state.comp,primary)).toFixed(1)}%</div></div><div><div class="cbl">Columnas comparadas</div><div class="cbv">${state.compareMetrics.length}</div><div class="cbs">${filterLabel()}</div></div>`;
-  const first='<th>Empresa</th><th>Sede</th>';
+  const first=`<th>Empresa</th><th>${hierarchyUnit()}</th>`;
   const metricHeads=state.compareMetrics.map(k=>`<th class="nr">${metricName(k)} ${label(state.base)}</th><th class="nr">${metricName(k)} ${label(state.comp)}</th><th class="nr">Δ ${metricName(k)}</th>`).join('');
   cmpHead.innerHTML=`${first}<th class="nr">Dot. Base</th><th class="nr">Dot. Comp.</th>${metricHeads}`;
   const totals=Object.fromEntries(state.compareMetrics.map(k=>[k,{b:0,c:0}]));
@@ -671,7 +686,7 @@ function renderConcepts(){
   ccBase.textContent=label(state.base); ccComp.textContent=label(state.comp);
   const rows=getConceptRows(state.conceptSort,state.conceptSearch,state.conceptLimit,'haber');
   const max=Math.max(...rows.map(r=>Math.abs(r.dif)),1),totAbs=rows.reduce((s,r)=>s+Math.abs(r.dif),0),sumHab=rows.reduce((s,r)=>s+r.dif,0);
-  conceptSub.textContent=`${rows.length} haberes visibles · expande concepto / empresa / sede / persona · ${label(state.base)} → ${label(state.comp)} · ${filterLabel()}`;
+  conceptSub.textContent=`${rows.length} haberes visibles · expande concepto / empresa / ${hierarchyUnitLower()} / persona · ${label(state.base)} → ${label(state.comp)} · ${filterLabel()}`;
   ccRows.innerHTML=rows.length?rows.map(r=>renderConceptTreeRow(r,max,totAbs)).join(''):`<div class="cc-section">Haberes<span>Sin diferencias visibles</span></div>`;
   const totalDif=getFilteredKpis(state.comp).total_haberes-getFilteredKpis(state.base).total_haberes;
   const labelLimit=state.conceptLimit==='all'?'todos los conceptos':`top ${state.conceptLimit}`;
@@ -918,7 +933,7 @@ function summarySheetAoA(title,baseRows,compRows,groupKey,base,comp){
 }
 function detailSheetAoA(baseRows,compRows,base,comp){
   const bm=Object.fromEntries(baseRows.map(r=>[r.rut,r])),cm=Object.fromEntries(compRows.map(r=>[r.rut,r])),keys=[...new Set([...Object.keys(bm),...Object.keys(cm)])].sort((a,b)=>String((cm[a]||bm[a]).empresa).localeCompare(String((cm[b]||bm[b]).empresa))||String((cm[a]||bm[a]).sede).localeCompare(String((cm[b]||bm[b]).sede))||String((cm[a]||bm[a]).nombre).localeCompare(String((cm[b]||bm[b]).nombre)));
-  const rows=[['N°','Empresa','Nombre','Rut','Sede','Cargo','Días Trab.',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null,'Sueldo Base',null,null],['','','','','','',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia']];
+  const rows=[['N°','Empresa','Nombre','Rut',hierarchyUnit(),'Cargo','Días Trab.',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null,'Sueldo Base',null,null],['','','','','','',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia']];
   keys.forEach((rut,i)=>{const b=bm[rut]||{},c=cm[rut]||{},r=c.rut?c:b;rows.push([i+1,r.empresa,r.nombre,r.rut,r.sede,r.cargo,b.dias||0,c.dias||0,(c.dias||0)-(b.dias||0),b.sueldo_liquido||0,c.sueldo_liquido||0,(c.sueldo_liquido||0)-(b.sueldo_liquido||0),b.total_haberes||0,c.total_haberes||0,(c.total_haberes||0)-(b.total_haberes||0),b.sueldo_base||0,c.sueldo_base||0,(c.sueldo_base||0)-(b.sueldo_base||0)]);});
   return rows;
 }
@@ -1018,7 +1033,7 @@ function downloadRevision(id){
   const baseRows=(DATA.details[base]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r)),compRows=(DATA.details[comp]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r));
   const wb=XLSX.utils.book_new();
   appendSheet(wb,'Resumen por empresa',summarySheetAoA('Grupo',baseRows,compRows,'empresa',base,comp),'summary');
-  appendSheet(wb,'Resumen completo',summarySheetAoA('Grupo',baseRows,compRows,'sede',base,comp),'summary');
+  appendSheet(wb,'Resumen completo',summarySheetAoA(hierarchyUnit(),baseRows,compRows,'sede',base,comp),'summary');
   appendSheet(wb,'Detalle individual',detailSheetAoA(baseRows,compRows,base,comp),'detail');
   appendSheet(wb,sheetMonthName(base),monthRowsAoA(baseRows,base),'month');
   appendSheet(wb,sheetMonthName(comp),monthRowsAoA(compRows,comp),'month');
@@ -1062,7 +1077,7 @@ function refreshDetailFilters(){
   if(empresas.includes(currentEmpresa)) detEmpresa.value=currentEmpresa;
   const filtered=detEmpresa.value?rows.filter(r=>r.empresa===detEmpresa.value):rows;
   const sedes=[...new Set(filtered.map(r=>r.sede))].sort();
-  detSede.innerHTML='<option value="">Todas las sedes</option>'+sedes.map(s=>`<option value="${s}">${s}</option>`).join('');
+  detSede.innerHTML=`<option value="">${hierarchyAll()}</option>`+sedes.map(s=>`<option value="${s}">${s}</option>`).join('');
   if(sedes.includes(currentSede)) detSede.value=currentSede;
   const filtered2=filtered.filter(r=>!detSede.value||r.sede===detSede.value);
   const cargos=[...new Set(filtered2.map(r=>r.cargo).filter(Boolean))].sort();
@@ -1074,7 +1089,7 @@ function refreshDetailFilters(){
 function detailColumns(){
   const fixed=[
     {key:'empresa',label:'Empresa',cls:'fix f1',type:'text'},
-    {key:'sede',label:'Sede',cls:'fix f2',type:'text'},
+    {key:'sede',label:hierarchyUnit(),cls:'fix f2',type:'text'},
     {key:'nombre',label:'Nombre',cls:'fix f3',type:'text'},
   ];
   const baseCols=[
@@ -1326,7 +1341,9 @@ function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||sta
   aoa.slice((headerRow>=0?headerRow:4)+1).forEach(raw=>{
     if(!raw||!raw[0]||raw[0]==='Empresa') return;
     const period=cleanText(rawVal(raw,idx,'Proceso')); if(!period) return;
-    const empresa=cleanText(rawVal(raw,idx,'Nombre empresa')),sede=cleanText(rawVal(raw,idx,'Sede'))||'Sin sede';
+    const empresa=cleanText(rawVal(raw,idx,'Nombre empresa'));
+    const sourceSede=cleanText(rawVal(raw,idx,'Sede'))||'Sin sede';
+    const sede=groupId==='Grupo NOW'?(cleanText(rawVal(raw,idx,'Centro Costo'))||'Sin centro de costo'):sourceSede;
     const conceptValues={};
     conceptCols.forEach(c=>{
       const v=parseNumber(raw[c.idx]||0);
