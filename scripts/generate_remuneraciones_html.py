@@ -72,8 +72,11 @@ def header_key(value) -> str:
 
 def canonical_concept_label(value) -> str:
     label = clean(value)
-    if header_key(label) in {"horas extras 50%", "horas extras empresa 50%"}:
+    key = header_key(label)
+    if key in {"horas extras 50%", "horas extras empresa 50%"}:
         return "Horas Extras Empresa 50%"
+    if key in {"vacaciones", "proporcional variable vacaciones"}:
+        return "Vacaciones"
     return label
 
 
@@ -2174,7 +2177,7 @@ function parseNumber(value){
 }
 function cleanText(value){return String(value??'').trim();}
 function headerKey(value){return cleanText(value).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();}
-function canonicalConceptLabel(value){const label=cleanText(value),key=headerKey(label);return key==='horas extras 50%'||key==='horas extras empresa 50%'?'Horas Extras Empresa 50%':label;}
+function canonicalConceptLabel(value){const label=cleanText(value),key=headerKey(label);if(key==='horas extras 50%'||key==='horas extras empresa 50%')return 'Horas Extras Empresa 50%';if(key==='vacaciones'||key==='proporcional variable vacaciones')return 'Vacaciones';return label;}
 function headerIndex(headers){
   const out={};
   headers.forEach((h,i)=>{const raw=cleanText(h),key=headerKey(h);if(raw&&!out[raw])out[raw]=i;if(key&&!out[key])out[key]=i;});
