@@ -895,6 +895,8 @@ table{width:100%;border-collapse:collapse;font-size:12.5px}thead th{background:#
 .cmp-banner{background:linear-gradient(135deg,var(--blue) 0%,#1d4ed8 100%);border-radius:var(--r);padding:18px 26px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;color:#fff}.cbl{font-size:11px;font-weight:600;opacity:.75;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px}.cbv{font-family:var(--m);font-size:26px;font-weight:700;line-height:1}.cbs{font-size:12px;font-weight:600;opacity:.8;margin-top:3px}
 .cc-hd,.cc-row{display:grid;grid-template-columns:220px 1fr 1fr 120px 150px;gap:10px;align-items:center}.cc-hd{padding:8px 14px;background:var(--surface2);border-bottom:1px solid var(--border);font-size:10.5px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}.cc-section{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:#eef4ff;border-top:1px solid var(--border);border-bottom:1px solid var(--border);font-size:11px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:.4px}.cc-section span{font-family:var(--m);font-size:11px;color:var(--text3);text-transform:none;letter-spacing:0}.cc-row{padding:9px 14px;border-bottom:1px solid var(--border);font-size:12.5px}.cc-row:hover{background:var(--surface2)}.cc-name{font-weight:600}.cc-num{font-family:var(--m);font-size:12px;text-align:right}.cc-bar{display:flex;align-items:center;gap:5px}.cc-mb{flex:1;height:5px;background:var(--surface2);border-radius:3px;overflow:hidden}.cc-mf{height:100%;border-radius:3px}
 .rg{display:grid;grid-template-columns:repeat(3,1fr);gap:11px;margin-bottom:18px}.rc{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:15px 18px;box-shadow:var(--sh0)}.rc.active{box-shadow:0 0 0 2px rgba(37,99,235,.18);background:var(--blue-lt)}.rv{font-family:var(--m);font-size:28px;font-weight:700;line-height:1;margin-bottom:3px}.rl{font-size:11.5px;color:var(--text3)}.rs{font-size:11px;color:var(--text3);margin-top:2px}
+.rrhh-kpi-section{margin:18px 0 26px}.rrhh-kpi-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:11px}.rrhh-kpi-section-title{font-size:12px;font-weight:850;color:var(--ink)}.rrhh-kpi-section-note{font-size:11px;color:var(--text3)}.rrhh-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.rrhh-kpi-card{min-height:94px}.rrhh-kpi-card .kpi-formula{font-size:10px;color:var(--text3);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rrhh-detail-empty{padding:24px;text-align:center;color:var(--text3);font-size:12px}.hr-company-row td{background:#fff;font-weight:800}.hr-unit-row td{background:#f8fafc;font-weight:650}.hr-worker-row td{background:#fff}.hr-worker-name{padding-left:24px}.hr-tree-cell{display:flex;align-items:center;gap:8px;min-width:0}.hr-tree-cell .exp-btn{flex-shrink:0}
+@media(max-width:1100px){.rrhh-kpi-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:760px){.rrhh-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:480px){.rrhh-kpi-grid{grid-template-columns:1fr}}
 .hi-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-bottom:18px}.hi-list{display:flex;flex-direction:column;gap:8px}.hi{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface)}.hi-main{min-width:0}.hi-title{font-weight:700;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hi-sub{font-size:11px;color:var(--text3);margin-top:1px}.hi-val{font-family:var(--m);font-weight:700;font-size:13px;white-space:nowrap}.tot-table td{padding:7px 10px}.dev-pill{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:10.5px;font-weight:700;font-family:var(--m)}@media(max-width:960px){.hi-grid{grid-template-columns:1fr}}
 .clickable{cursor:pointer}.clickable:hover{background:var(--blue-lt)}.selected-line{background:var(--blue-lt)}
 .exp-btn{width:24px;height:24px;border:1px solid var(--border2);border-radius:6px;background:var(--surface);color:var(--text2);font-family:var(--m);font-weight:700;cursor:pointer}.exp-btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-lt)}.sede-row td{background:#fafbff}.sede-name{padding-left:34px;color:var(--text2)}
@@ -927,6 +929,7 @@ canvas{max-width:100%}
   <div class="tab" data-sec="auditoria">Auditoría</div>
   <div class="tab" data-sec="descargas">Descargas</div>
   <div class="tab" data-sec="detalle">Detalle</div>
+  <div class="tab" data-sec="rrhh">KPI RRHH</div>
   <div class="tab" data-sec="beta">Beta</div>
 </nav>
 <main class="main">
@@ -1019,6 +1022,26 @@ canvas{max-width:100%}
     <div class="detail-filter-menu" id="detailFilterMenu"></div>
   </section>
 
+  <section class="sec" id="sec-rrhh">
+    <div class="sec-hd"><div class="sec-title">KPI Clásicos de RRHH</div><div class="sec-sub" id="rrhhKpiSub"></div></div>
+    <div class="rrhh-kpi-section">
+      <div class="rrhh-kpi-section-head"><div class="rrhh-kpi-section-title">Dotación y movimientos</div><div class="rrhh-kpi-section-note">Estructura y cambios entre los meses elegidos</div></div>
+      <div class="rrhh-kpi-grid" id="rrhhMovementCards"></div>
+    </div>
+    <div class="rrhh-kpi-section">
+      <div class="rrhh-kpi-section-head"><div class="rrhh-kpi-section-title">Asistencia</div><div class="rrhh-kpi-section-note">Ausencias y licencias respecto de días trabajados + ausentes</div></div>
+      <div class="rrhh-kpi-grid" id="rrhhAttendanceCards"></div>
+    </div>
+    <div class="rrhh-kpi-section">
+      <div class="rrhh-kpi-section-head"><div class="rrhh-kpi-section-title">Jornada y remuneraciones</div><div class="rrhh-kpi-section-note">Participación de horas extra y promedios</div></div>
+      <div class="rrhh-kpi-grid" id="rrhhPayCards"></div>
+    </div>
+    <div class="panel" id="rrhhKpiDetailPanel">
+      <div class="panel-hd"><div><div class="panel-title" id="rrhhDetailTitle">Detalle del indicador</div><div class="panel-sub" id="rrhhDetailSub"></div></div></div>
+      <div class="tw sy"><table><thead><tr id="rrhhDetailHead"></tr></thead><tbody id="rrhhDetailBody"></tbody></table></div>
+    </div>
+  </section>
+
   <section class="sec" id="sec-beta">
     <div class="sec-hd"><div class="sec-title">Beta</div><div class="sec-sub">Comparativo mensual y análisis de desviaciones</div></div>
     <div class="sec-hd"><div class="sec-title">KPIs Operacionales</div><div class="sec-sub" id="kpiOpsSub">Rotación, ausentismo y licencias con jerarquía <span data-hier-path="3">Empresa / Sede / Trabajador</span></div></div>
@@ -1070,7 +1093,7 @@ DATA=ensureGroups(DATA);
 const groupMonths=g=>(DATA.months_by_group?.[g]?.length?DATA.months_by_group[g]:DATA.months);
 const defaultGroup=DATA.group_options[0]?.id||'CRUX FOOD';
 const defaultMonths=groupMonths(defaultGroup);
-const state = {grupo:defaultGroup, base: defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', comp: defaultMonths.at(-1)?.id||defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', empresa:'', sede:'', metric:'total_haberes', compareMetrics:['total_haberes','sueldo_liquido'], dashboardKpiFocus:'total_haberes', expandedCompanies:{}, expandedKpiRot:{}, expandedKpiAus:{}, expandedKpiLic:{}, kpiFocus:'', expandedDiffConcepts:{}, expandedDiffCompanies:{}, expandedDiffSedes:{}, conceptLimit:'15', conceptSort:'abs', conceptSearch:'', selectedConcept:'', detailFilters:{}};
+const state = {grupo:defaultGroup, base: defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', comp: defaultMonths.at(-1)?.id||defaultMonths.at(-2)?.id||defaultMonths[0]?.id||'', empresa:'', sede:'', metric:'total_haberes', compareMetrics:['total_haberes','sueldo_liquido'], dashboardKpiFocus:'total_haberes', expandedCompanies:{}, expandedKpiRot:{}, expandedKpiAus:{}, expandedKpiLic:{}, kpiFocus:'', rrhhMetricFocus:'rotation', rrhhExpanded:{}, expandedDiffConcepts:{}, expandedDiffCompanies:{}, expandedDiffSedes:{}, conceptLimit:'15', conceptSort:'abs', conceptSearch:'', selectedConcept:'', detailFilters:{}};
 let byId = Object.fromEntries(DATA.months.map(m=>[m.id,m]));
 let detailFilterTimer = null;
 let detailFilterKey = '';
@@ -1639,6 +1662,113 @@ function renderKpisMenu(){
   renderWorkerTree(kpiRotBody,rotTree,state.expandedKpiRot,'rot','rot');
   renderWorkerTree(kpiAusBody,ausTree,state.expandedKpiAus,'aus','aus');
   renderWorkerTree(kpiLicBody,licTree,state.expandedKpiLic,'lic','lic');
+}
+const rrhhIcons={
+  dotacion:'<svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/></svg>',
+  fte:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  ingresos:'<svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>',
+  egresos:'<svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>',
+  rate:'<svg viewBox="0 0 24 24"><path d="M4 18 10 12l4 4 6-9"/><path d="M15 7h5v5"/></svg>',
+  days:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  hhee:'<svg viewBox="0 0 24 24"><path d="m13 2-3 8h7l-6 12 1-9H6l7-11Z"/></svg>',
+  money:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>'
+};
+const rrhhMetricMeta={
+  dotacion:{label:'Dotación',format:'count',icon:'dotacion'},fte:{label:'FTE',format:'decimal',icon:'fte'},
+  ingresos:{label:'Ingresos',format:'movement',icon:'ingresos'},egresos:{label:'Egresos',format:'movement',icon:'egresos'},
+  rotation:{label:'Rotación',format:'rate',icon:'rate'},absenceRate:{label:'Ausentismo',format:'rate',icon:'days'},
+  absenceDays:{label:'Días de ausencia',format:'decimal',icon:'days'},leaveDays:{label:'Días de licencia',format:'decimal',icon:'days'},
+  leaveRate:{label:'% días con licencia',format:'rate',icon:'days'},hheeShare:{label:'% HHEE sobre haberes',format:'rate',icon:'hhee'},
+  hheeAmount:{label:'Monto HHEE',format:'money',icon:'hhee'},total_haberes:{label:'Suma Haberes',format:'money',icon:'money'},
+  avgDays:{label:'Días trabajados prom.',format:'decimal',icon:'days'},avgBase:{label:'Sueldo base prom.',format:'money',icon:'money'},
+  avgNet:{label:'Sueldo líquido prom.',format:'money',icon:'money'}
+};
+function rrhhUnique(rows){return new Set(rows.map(r=>r.rut).filter(Boolean)).size}
+function rrhhMetricValue(id,rows){
+  const sum=k=>rows.reduce((a,r)=>a+(+r[k]||0),0),count=rrhhUnique(rows),worked=sum('dias'),absent=sum('ausentismo_dias'),scheduled=worked+absent;
+  if(id==='dotacion') return count;
+  if(id==='fte') return sum('fte')||worked/30;
+  if(id==='absenceRate') return scheduled?absent/scheduled*100:0;
+  if(id==='absenceDays') return absent;
+  if(id==='leaveDays') return sum('licencia_dias');
+  if(id==='leaveRate') return scheduled?sum('licencia_dias')/scheduled*100:0;
+  if(id==='hheeShare') return sum('total_haberes')?sum('hhee')/sum('total_haberes')*100:0;
+  if(id==='hheeAmount') return sum('hhee');
+  if(id==='total_haberes') return sum('total_haberes');
+  if(id==='avgDays') return rows.length?worked/rows.length:0;
+  if(id==='avgBase') return rows.length?sum('sueldo_base')/rows.length:0;
+  if(id==='avgNet') return rows.length?sum('sueldo_liquido')/rows.length:0;
+  return 0;
+}
+function rrhhMovements(baseRows,compRows,kind){
+  const before=new Map(baseRows.map(r=>[r.rut,r])),after=new Map(compRows.map(r=>[r.rut,r]));
+  return kind==='ingresos'?[...after].filter(([rut])=>!before.has(rut)).map(([,r])=>r):[...before].filter(([rut])=>!after.has(rut)).map(([,r])=>r);
+}
+function rrhhRotation(baseRows,compRows){const exits=rrhhMovements(baseRows,compRows,'egresos').length,average=(rrhhUnique(baseRows)+rrhhUnique(compRows))/2;return {exits,average,rate:average?exits/average*100:0}}
+function rrhhFormat(id,value){
+  const type=rrhhMetricMeta[id]?.format;
+  if(type==='rate') return P(value);
+  if(type==='money') return Math.abs(value)>=1000000?M(value):K(value);
+  return type==='decimal'?Number(value||0).toLocaleString('es-CL',{minimumFractionDigits:1,maximumFractionDigits:2}):N(value||0);
+}
+function rrhhDelta(id,before,after){return rrhhMetricMeta[id]?.format==='rate'?`${sign(after-before)}${(after-before).toFixed(1)} pp`:`${sign(after-before)}${rrhhFormat(id,after-before)}`}
+function rrhhDeltaClass(id,difference){return ['rotation','absenceRate','leaveRate','hheeShare'].includes(id)?(difference>0?'dn':difference<0?'dp':'d0'):cls(difference)}
+function selectRrhhMetric(id){state.rrhhMetricFocus=id;state.rrhhExpanded={};renderClassicHrKpis();document.getElementById('rrhhKpiDetailPanel')?.scrollIntoView({behavior:'smooth',block:'start'})}
+function toggleRrhhNode(encoded){const key=decodeURIComponent(encoded);state.rrhhExpanded[key]=!state.rrhhExpanded[key];renderClassicHrKpiDetail()}
+function renderClassicHrKpis(){
+  const base=filteredDetails(state.base),comp=filteredDetails(state.comp),cards={
+    rrhhMovementCards:['dotacion','fte','ingresos','egresos','rotation'],
+    rrhhAttendanceCards:['absenceRate','absenceDays','leaveDays','leaveRate'],
+    rrhhPayCards:['hheeShare','hheeAmount','total_haberes','avgDays','avgBase','avgNet']
+  };
+  rrhhKpiSub.textContent=`${label(state.base)} → ${label(state.comp)} · ${filterLabel()} · Tasas calculadas sobre totales del período`;
+  Object.entries(cards).forEach(([target,ids])=>{
+    document.getElementById(target).innerHTML=ids.map(id=>{
+      const meta=rrhhMetricMeta[id],movement=id==='ingresos'||id==='egresos',before=movement?0:rrhhMetricValue(id,base);
+      const value=movement?rrhhMovements(base,comp,id).length:id==='rotation'?rrhhRotation(base,comp).rate:rrhhMetricValue(id,comp);
+      const foot=movement?`${label(state.base)} → ${label(state.comp)} · ${N(value)} personas`:id==='rotation'?`${N(rrhhRotation(base,comp).exits)} egresos / dotación media`:`${label(state.base)}: ${rrhhFormat(id,before)} · ${rrhhDelta(id,before,value)}`;
+      const formula={rotation:'Egresos / dotación media',absenceRate:'Licencias, permisos y faltas / (trabajados + ausencias)',leaveRate:'Días de licencia / (trabajados + ausencias)',hheeShare:'Monto HHEE / Suma Haberes',fte:'Días trabajados / 30',avgDays:'Días trabajados / personas'}[id]||'Click para abrir Empresa / unidad / trabajador';
+      const color={egresos:'var(--red)',ingresos:'var(--green)',rotation:'var(--blue)',absenceRate:'var(--amber)',leaveRate:'var(--amber)',hheeShare:'var(--purple)',hheeAmount:'var(--purple)',fte:'var(--green)'}[id]||'var(--blue)';
+      return `<button class="kpi rrhh-kpi-card ${state.rrhhMetricFocus===id?'active':''}" style="--kpi-color:${color}" onclick="selectRrhhMetric('${id}')"><div class="kpi-top"><span class="kpi-lbl">${meta.label}</span><span class="kpi-ico">${rrhhIcons[meta.icon]}</span></div><div class="kpi-val">${rrhhFormat(id,value)}</div><div class="kpi-foot"><span class="kpi-prev">${foot}</span><span class="kpi-dif">›</span></div><div class="kpi-formula">${formula}</div></button>`;
+    }).join('');
+  });
+  renderClassicHrKpiDetail();
+}
+function renderClassicHrKpiDetail(){
+  const id=state.rrhhMetricFocus,meta=rrhhMetricMeta[id],base=filteredDetails(state.base),comp=filteredDetails(state.comp),movement=id==='ingresos'||id==='egresos',rotation=id==='rotation';
+  rrhhDetailTitle.textContent=`${meta.label} · detalle`;
+  rrhhDetailSub.textContent=`${label(state.base)} → ${label(state.comp)} · ${hierarchyPath(3)} · ${rotation?'Egresos / dotación media':movement?'Personas que ingresan o egresan entre ambos meses':'Comparación agregada por empresa y unidad'}`;
+  rrhhDetailHead.innerHTML=rotation?`<th></th><th>${hierarchyPath(3)}</th><th class="nr">Egresos</th><th class="nr">Dotación media</th><th class="nr">Rotación</th>`:movement?`<th></th><th>${hierarchyPath(3)}</th><th class="nr">Personas</th><th>Movimiento</th>`:`<th></th><th>${hierarchyPath(3)}</th><th class="nr">${label(state.base)}</th><th class="nr">${label(state.comp)}</th><th class="nr">Δ</th>`;
+  const events=movement||rotation?rrhhMovements(base,comp,movement?id:'egresos'):[],companies=[...new Set([...base,...comp].map(r=>r.empresa))].sort((a,b)=>a.localeCompare(b,'es'));
+  if(!companies.length){rrhhDetailBody.innerHTML='<tr><td colspan="5" class="rrhh-detail-empty">No hay registros para los filtros seleccionados.</td></tr>';return;}
+  const values=(beforeRows,afterRows)=>{
+    if(rotation){const v=rrhhRotation(beforeRows,afterRows);return `<td class="nr">${N(v.exits)}</td><td class="nr">${v.average.toLocaleString('es-CL',{maximumFractionDigits:1})}</td><td class="nr ${rrhhDeltaClass(id,v.rate)}">${P(v.rate)}</td>`;}
+    const before=rrhhMetricValue(id,beforeRows),after=rrhhMetricValue(id,afterRows);
+    return `<td class="nr">${rrhhFormat(id,before)}</td><td class="nr">${rrhhFormat(id,after)}</td><td class="nr ${rrhhDeltaClass(id,after-before)}">${rrhhDelta(id,before,after)}</td>`;
+  };
+  const rows=[];
+  companies.forEach(company=>{
+    const b=base.filter(r=>r.empresa===company),c=comp.filter(r=>r.empresa===company),key=`emp:${company}`,open=!!state.rrhhExpanded[key],companyEvents=events.filter(r=>r.empresa===company);
+    rows.push(`<tr class="hr-company-row"><td><button class="exp-btn" onclick="toggleRrhhNode('${encodeURIComponent(key)}')">${open?'−':'+'}</button></td><td class="tn">${txt(company)}</td>${movement?`<td class="nr">${N(companyEvents.length)}</td><td>${id==='ingresos'?'Ingresos':'Egresos'}</td>`:values(b,c)}</tr>`);
+    if(!open)return;
+    const units=[...new Set([...b,...c].map(r=>r.sede||'Sin dato'))].sort((a,z)=>a.localeCompare(z,'es'));
+    units.forEach(unit=>{
+      const bu=b.filter(r=>(r.sede||'Sin dato')===unit),cu=c.filter(r=>(r.sede||'Sin dato')===unit),uKey=`unit:${company}::${unit}`,uOpen=!!state.rrhhExpanded[uKey],unitEvents=events.filter(r=>r.empresa===company&&(r.sede||'Sin dato')===unit);
+      rows.push(`<tr class="hr-unit-row"><td><button class="exp-btn" onclick="toggleRrhhNode('${encodeURIComponent(uKey)}')">${uOpen?'−':'+'}</button></td><td>${txt(unit)}</td>${movement?`<td class="nr">${N(unitEvents.length)}</td><td>${id==='ingresos'?'Ingresos':'Egresos'}</td>`:values(bu,cu)}</tr>`);
+      if(!uOpen)return;
+      if(movement||rotation){
+        unitEvents.forEach(w=>rows.push(`<tr class="hr-worker-row clickable" onclick="goWorkerDetail('${movement&&id==='ingresos'?state.comp:state.base}',decodeURIComponent('${encodeURIComponent(w.rut||'')}'))"><td></td><td class="hr-worker-name"><span class="kpi-detail-name"><span>${txt(w.rut)}</span><b>${txt(w.nombre)}</b></span></td>${rotation?'<td class="nr">1</td><td class="nr">—</td><td>Salida</td>':`<td class="nr">1</td><td>${id==='ingresos'?'Ingreso':'Egreso'}</td>`}</tr>`));
+        return;
+      }
+      const bm=new Map(bu.map(r=>[r.rut,r])),cm=new Map(cu.map(r=>[r.rut,r]));
+      const workers=[...new Set([...bm.keys(),...cm.keys()])].sort((x,y)=>String((cm.get(x)||bm.get(x))?.nombre||'').localeCompare(String((cm.get(y)||bm.get(y))?.nombre||''),'es'));
+      workers.forEach(rut=>{
+        const bw=bm.get(rut),cw=cm.get(rut),person=cw||bw,before=bw?rrhhMetricValue(id,[bw]):0,after=cw?rrhhMetricValue(id,[cw]):0;
+        rows.push(`<tr class="hr-worker-row clickable" onclick="goWorkerDetail('${cw?state.comp:state.base}',decodeURIComponent('${encodeURIComponent(rut||'')}'))"><td></td><td class="hr-worker-name"><span class="kpi-detail-name"><span>${txt(rut)}</span><b>${txt(person.nombre)}</b></span></td><td class="nr">${rrhhFormat(id,before)}</td><td class="nr">${rrhhFormat(id,after)}</td><td class="nr ${rrhhDeltaClass(id,after-before)}">${rrhhDelta(id,before,after)}</td></tr>`);
+      });
+    });
+  });
+  rrhhDetailBody.innerHTML=rows.join('');
 }
 function renderDeviaciones(){
   const f=getFilteredKpis(state.base),m=getFilteredKpis(state.comp);
@@ -2211,7 +2341,7 @@ function reloadData(newData){
   state.grupo=DATA.group_options[0]?.id||'CRUX FOOD';
   const months=groupMonths(state.grupo);
   state.base=months.at(-2)?.id||months[0]?.id||''; state.comp=months.at(-1)?.id||state.base;
-  state.empresa='';state.sede='';state.metric='total_haberes';state.compareMetrics=['total_haberes','sueldo_liquido'];state.dashboardKpiFocus='total_haberes';state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.selectedConcept='';state.detailFilters={};
+  state.empresa='';state.sede='';state.metric='total_haberes';state.compareMetrics=['total_haberes','sueldo_liquido'];state.dashboardKpiFocus='total_haberes';state.rrhhMetricFocus='rotation';state.rrhhExpanded={};state.expandedCompanies={};state.expandedKpiRot={};state.expandedKpiAus={};state.expandedKpiLic={};state.expandedDiffConcepts={};state.expandedDiffCompanies={};state.expandedDiffSedes={};state.selectedConcept='';state.detailFilters={};
   initSelectors(); renderAll();
 }
 function handleFileUpload(e){
@@ -2229,7 +2359,7 @@ function handleFileUpload(e){
   };
   reader.readAsArrayBuffer(file);
 }
-function renderAll(){applyAuditVisibility();renderChips();renderCompanyDivision();renderKPIs();renderTotalsHighlights();renderKpisMenu();renderComparativo();renderConcepts();renderDeviaciones();renderAuditoria();renderDownloads();renderDetail();}
+function renderAll(){applyAuditVisibility();renderChips();renderCompanyDivision();renderKPIs();renderTotalsHighlights();renderKpisMenu();renderClassicHrKpis();renderComparativo();renderConcepts();renderDeviaciones();renderAuditoria();renderDownloads();renderDetail();}
 document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>activateTab(t.dataset.sec)));
 document.addEventListener('click',e=>{if(!e.target.closest?.('#detailFilterMenu')&&!e.target.closest?.('.head-filter-btn'))closeDetailFilterMenu();});
 const savedGroup=localStorage.getItem('remuGrupoSeleccionado');
