@@ -2477,7 +2477,7 @@ function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||sta
     data.groups.empresa_sede[month]=groupRowsJs(rows,['grupo','empresa','sede']);
     data.concepts[month]=conceptSums[month]||{};
     data.concept_groups[month]=groupConceptsJs(rows,conceptCols);
-    data.details[month]=rows.map(r=>({grupo:r.grupo,rut:r.rut,nombre:r.nombre,cargo:r.cargo,contrato:r.contrato,empresa:r.empresa,sede:r.sede,dias:r.dias,fte:+(r.dias/30).toFixed(2),sueldo_base:Math.round(r.sueldo_base),total_haberes:Math.round(r.total_haberes),total_descuentos:Math.round(r.total_descuentos),sueldo_liquido:Math.round(r.sueldo_liquido),hhee:Math.round(r.hhee),licencia_dias:+(r.licencia_dias||0).toFixed(1),ausentismo_dias:+(r.ausentismo_dias||0).toFixed(1),bono_manip_pae:Math.round(r.bono_manip_pae),raw:r._raw,concepts:Object.fromEntries(Object.entries(r.concept_values).map(([k,v])=>[k,Math.round(v)]))}));
+    data.details[month]=rows.map(r=>({grupo:r.grupo,rut:r.rut,nombre:r.nombre,cargo:r.cargo,contrato:r.contrato,empresa:r.empresa,sede:r.sede,area:r.area||r.sede,dias:r.dias,fte:+(r.dias/30).toFixed(2),sueldo_base:Math.round(r.sueldo_base),total_haberes:Math.round(r.total_haberes),total_descuentos:Math.round(r.total_descuentos),sueldo_liquido:Math.round(r.sueldo_liquido),hhee:Math.round(r.hhee),licencia_dias:+(r.licencia_dias||0).toFixed(1),ausentismo_dias:+(r.ausentismo_dias||0).toFixed(1),bono_manip_pae:Math.round(r.bono_manip_pae),raw:r._raw,concepts:Object.fromEntries(Object.entries(r.concept_values).map(([k,v])=>[k,Math.round(v)]))}));
   });
   return data;
 }
