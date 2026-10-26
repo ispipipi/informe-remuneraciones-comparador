@@ -1445,13 +1445,25 @@ function buildAvanzaUploadData(aoa,fileName){
   const value=(raw,name)=>rawVal(raw,idx,name);
   const outputHeaders=['Proceso','Nombre empresa','Sede','Area','Nombre','Rut','Contrato','Cargo','Días Trabajados','Sueldo Base','Gratificación','Bono Gestión Trimestral','Horas Extras Empresa 50%','Colación','Movilización','Suma Haberes','Cotizacion AFP','Cotización Salud','Adicional Salud','Seguro Cesantía','Impuesto Único','Total Rebajas','Sueldo Líquido'];
   const output=[outputHeaders];
-  const overheadAreas=new Set(['Comercial','Hunting','IT','Outsourcing']);
+  const allowedCompanies=new Set(['Grupo Avanza SPA','EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA'].map(headerKey));
+  const overheadAreas=new Set(['Comercial','Hunting','IT','Outsourcing'].map(headerKey));
+  const areaByCompanySede=new Map();
+  Object.values(DATA.details||{}).flat().forEach(row=>{
+    if(!allowedCompanies.has(headerKey(row.empresa))) return;
+    const area=cleanText(row.area),costCenter=area.split(',').map(part=>part.trim()).at(-1)||row.sede,key=`${headerKey(row.empresa)}|${headerKey(costCenter)}`,areaKey=headerKey(area);
+    if(area&&(/^(outsourcing|ga est|over head)/.test(areaKey)||overheadAreas.has(areaKey))&&!areaByCompanySede.has(key)) areaByCompanySede.set(key,area);
+  });
+  const rawRowsByMonth={};
   aoa.slice(headerRow+1).forEach(raw=>{
     const rut=cleanText(value(raw,'Empleado - Número de Documento'));
     if(!rut) return;
     const empresa=cleanText(value(raw,'Empresa - Nombre Empresa'))||'Grupo Avanza SPA';
+    if(!allowedCompanies.has(headerKey(empresa))) return;
     const rawSede=cleanText(value(raw,'Trabajo - Nombre Sub-área Asignada(o)'));
-    const sede=overheadAreas.has(rawSede)?'Over head':(rawSede||'Sin sede');
+    const mapKey=`${headerKey(empresa)}|${headerKey(rawSede)}`;
+    const area=areaByCompanySede.get(mapKey)||(overheadAreas.has(headerKey(rawSede))?'Over Head':headerKey(empresa)===headerKey('EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA')?'GA EST':'OUTSOURCING')+`, ${rawSede||'Sin centro de costo'}, ${rawSede||'Sin centro de costo'}`;
+    const areaCategory=cleanText(area.split(',')[0]);
+    const sede=overheadAreas.has(headerKey(areaCategory))||headerKey(areaCategory)==='over head'?'Over Head':(areaCategory||rawSede||'Sin sede');
     const cotizacionPrevisional=numVal(raw,idx,'Descuentos Legales - Cotiz. Previ. Obligatoria');
     const cotizacionSalud=numVal(raw,idx,'Descuentos Legales - Cotiz. Salud Obligatoria');
     const adicionalSalud=numVal(raw,idx,'Descuentos Legales - Adicional Salud');
@@ -1461,7 +1473,7 @@ function buildAvanzaUploadData(aoa,fileName){
       normalizeAvanzaPeriod(value(raw,'Liquidación - Período')),
       empresa,
       sede,
-      rawSede,
+      area,
       cleanText(value(raw,'Empleado - Nombre Completo')),
       rut,
       '',
@@ -1482,9 +1494,15 @@ function buildAvanzaUploadData(aoa,fileName){
       cotizacionPrevisional+cotizacionSalud+adicionalSalud+seguroCesantia+impuesto,
       value(raw,'Liquidación - Sueldo Líquido'),
     ]);
+    const period=normalizeAvanzaPeriod(value(raw,'Liquidación - Período'));
+    (rawRowsByMonth[period]=rawRowsByMonth[period]||[]).push(headers.map((_,i)=>raw[i]??''));
   });
-  if(output.length===1) throw new Error('No encontré registros válidos en el libro de Avanza.');
-  return buildDataFromRows(output,fileName,'Grupo Avanza');
+  if(output.length===1) throw new Error('No encontré registros de Grupo Avanza en este libro.');
+  const data=buildDataFromRows(output,fileName,'Grupo Avanza');
+  data.metadata.avanza_headers=headers;
+  data.metadata.avanza_month_headers=Object.fromEntries(Object.keys(rawRowsByMonth).map(month=>[month,headers]));
+  Object.entries(data.details).forEach(([month,rows])=>rows.forEach((row,i)=>{row.raw=rawRowsByMonth[month]?.[i]||row.raw;}));
+  return data;
 }
 function avanzaUploadPeriodFromLabel(value){
   const months={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',setiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
@@ -1656,8 +1674,9 @@ function handleFileUpload(e){
       const ws=wb.Sheets.Detalle||wb.Sheets[wb.SheetNames[0]];
       const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
       const isMonthlyAvanza=isAvanzaMonthlyWorkbook(wb);
-      let data=isMonthlyAvanza?buildAvanzaMonthlyUploadData(wb,file.name):isAvanzaBook(aoa)?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name);
-      if(isMonthlyAvanza) data=mergeAvanzaMonthlyUploadData(data);
+      const isAccumulatedAvanza=isAvanzaBook(aoa);
+      let data=isMonthlyAvanza?buildAvanzaMonthlyUploadData(wb,file.name):isAccumulatedAvanza?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name);
+      if(isMonthlyAvanza||isAccumulatedAvanza) data=mergeAvanzaMonthlyUploadData(data);
       reloadData(data);
     }catch(err){console.error(err);alert(`No pude cargar el archivo: ${err.message}`);}
   };
