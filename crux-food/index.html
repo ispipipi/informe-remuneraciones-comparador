@@ -1555,6 +1555,32 @@ function buildAvanzaMonthlyUploadData(wb,fileName){
   Object.entries(data.details).forEach(([month,rows])=>rows.forEach((row,i)=>{row.raw=rawRowsByMonth[month]?.[i]||row.raw;}));
   return data;
 }
+function mergeAvanzaMonthlyUploadData(uploaded){
+  if(DATA.metadata?.locked_group!=='Grupo Avanza') return uploaded;
+  const details={...(DATA.details||{}),...(uploaded.details||{})};
+  const months=[...new Set([...Object.keys(DATA.details||{}),...Object.keys(uploaded.details||{})])].sort();
+  const monthOptions=months.map(id=>({id,label:monthLabelFromPeriod(id)}));
+  const mergeGroup=(key)=>({...((DATA.groups||{})[key]||{}),...((uploaded.groups||{})[key]||{})});
+  return {
+    ...DATA,
+    metadata:{...DATA.metadata,...uploaded.metadata,
+      source:[DATA.metadata?.source,uploaded.metadata?.source].filter(Boolean).join(' + '),
+      month_count:months.length,
+      record_count:Object.values(details).reduce((total,rows)=>total+rows.length,0),
+      company_count:new Set(Object.values(details).flat().map(row=>row.empresa).filter(Boolean)).size,
+      avanza_month_headers:{...(DATA.metadata?.avanza_month_headers||{}),...(uploaded.metadata?.avanza_month_headers||{})},
+      locked_group:'Grupo Avanza',show_audit:!!DATA.metadata?.show_audit,
+    },
+    months:monthOptions,
+    months_by_group:{...(DATA.months_by_group||{}),'Grupo Avanza':monthOptions},
+    kpis:{...(DATA.kpis||{}),...(uploaded.kpis||{})},
+    groups:{empresa:mergeGroup('empresa'),sede:mergeGroup('sede'),empresa_sede:mergeGroup('empresa_sede')},
+    concepts:{...(DATA.concepts||{}),...(uploaded.concepts||{})},
+    concept_types:{...(DATA.concept_types||{}),...(uploaded.concept_types||{})},
+    concept_groups:{...(DATA.concept_groups||{}),...(uploaded.concept_groups||{})},
+    details,
+  };
+}
 function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||state.grupo||'CRUX FOOD'){
   const headerRow=aoa.findIndex(row=>row&&((headerKey(row[0])==='empresa'&&headerKey(row[3])==='proceso')||(headerKey(row[0])==='proceso'&&headerKey(row[1])==='nombre empresa')));
   const headers=aoa[headerRow>=0?headerRow:4]||[],idx=headerIndex(headers);
@@ -1629,7 +1655,9 @@ function handleFileUpload(e){
       const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:false});
       const ws=wb.Sheets.Detalle||wb.Sheets[wb.SheetNames[0]];
       const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
-      const data=isAvanzaMonthlyWorkbook(wb)?buildAvanzaMonthlyUploadData(wb,file.name):isAvanzaBook(aoa)?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name);
+      const isMonthlyAvanza=isAvanzaMonthlyWorkbook(wb);
+      let data=isMonthlyAvanza?buildAvanzaMonthlyUploadData(wb,file.name):isAvanzaBook(aoa)?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name);
+      if(isMonthlyAvanza) data=mergeAvanzaMonthlyUploadData(data);
       reloadData(data);
     }catch(err){console.error(err);alert(`No pude cargar el archivo: ${err.message}`);}
   };
