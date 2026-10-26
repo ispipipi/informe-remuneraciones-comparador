@@ -1486,6 +1486,75 @@ function buildAvanzaUploadData(aoa,fileName){
   if(output.length===1) throw new Error('No encontré registros válidos en el libro de Avanza.');
   return buildDataFromRows(output,fileName,'Grupo Avanza');
 }
+function avanzaUploadPeriodFromLabel(value){
+  const months={enero:'01',febrero:'02',marzo:'03',abril:'04',mayo:'05',junio:'06',julio:'07',agosto:'08',septiembre:'09',setiembre:'09',octubre:'10',noviembre:'11',diciembre:'12'};
+  const match=headerKey(value).match(/(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre)\s+(\d{4})/);
+  return match?`${match[2]}-${months[match[1]]}`:'';
+}
+function isAvanzaMonthlyWorkbook(wb){
+  return (wb.SheetNames||[]).some(name=>{
+    const sheet=wb.Sheets[name];
+    return headerKey(sheet?.A1?.v)==='libro: remuneraciones'&&headerKey(sheet?.A2?.v).startsWith('empresa:')&&headerKey(sheet?.A3?.v).startsWith('periodo:')&&headerKey(sheet?.A6?.v)==='rut';
+  });
+}
+function buildAvanzaMonthlyUploadData(wb,fileName){
+  const normalizedRows=[],rawRowsByMonth={},headersByMonth={};
+  const allowedCompanies=new Set(['Grupo Avanza SPA','EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA'].map(headerKey));
+  const overheadAreas=new Set(['Comercial','Hunting','IT','Outsourcing'].map(headerKey));
+  let firstHeaders=[];
+  for(const sheetName of wb.SheetNames){
+    const sheet=wb.Sheets[sheetName],aoa=XLSX.utils.sheet_to_json(sheet,{header:1,defval:'',raw:true});
+    const headerRow=aoa.findIndex(row=>row?.some(value=>headerKey(value)==='rut'));
+    if(headerRow<0) continue;
+    const headers=aoa[headerRow]||[],idx=headerIndex(headers);
+    const companyLabel=cleanText(aoa.find(row=>headerKey(row?.[0]).startsWith('empresa:'))?.[0]);
+    const company=companyLabel.replace(/^empresa:\s*/i,'').replace(/\s*\([^)]*\)\s*$/,'').trim();
+    const periodLabel=aoa.find(row=>headerKey(row?.[0]).startsWith('periodo:'))?.[0]||'';
+    const period=avanzaUploadPeriodFromLabel(periodLabel);
+    if(!allowedCompanies.has(headerKey(company))) throw new Error(`La hoja ${sheetName} no corresponde a una empresa reconocida de Grupo Avanza: ${company||'sin empresa'}.`);
+    if(!period) throw new Error(`No pude identificar el mes de la hoja ${sheetName}. Revisa la fila que indica "Periodo: Mes Año".`);
+    const required=['RUT','CÓDIGO','AP PATERNO','AP MATERNO','NOMBRES','CARGO','AREA','DÍAS TRABAJADOS','SUELDO BASE','TOTAL HABERES','PREVIS','TOTAL DESCUENTOS','SUELDO LÍQUIDO'];
+    const missing=required.filter(name=>idxOf(idx,name)===undefined);
+    if(missing.length) throw new Error(`Faltan columnas del libro mensual de Avanza (${sheetName}): ${missing.join(', ')}`);
+    const earningStart=idxOf(idx,'Sueldo Base'),earningEnd=idxOf(idx,'Total Haberes');
+    const discountStart=idxOf(idx,'Previs'),discountEnd=idxOf(idx,'Total Descuentos');
+    if(earningStart>=earningEnd||discountStart>=discountEnd) throw new Error(`No pude determinar los rangos de haberes y descuentos de la hoja ${sheetName}.`);
+    const existingHeaders=headersByMonth[period];
+    if(existingHeaders&&headers.some((value,i)=>headerKey(value)!==headerKey(existingHeaders[i]))) throw new Error(`Las hojas del mes ${period} no tienen las mismas columnas.`);
+    headersByMonth[period]=headers;
+    if(!firstHeaders.length) firstHeaders=headers;
+    const earningHeaders=headers.slice(earningStart,earningEnd).map(value=>{
+      const key=headerKey(value);
+      if(key==='horas extras'||key==='horas extras 50%'||key==='horas extras empresa 50%') return 'Horas Extras Empresa 50%';
+      return cleanText(value);
+    });
+    const discountHeaders=headers.slice(discountStart,discountEnd).map((value,i)=>i===0?'Cotizacion AFP':cleanText(value));
+    if(!normalizedRows.length) normalizedRows.push(['Proceso','Nombre empresa','Sede','Area','Nombre','Rut','Contrato','Cargo','Días Trabajados',...earningHeaders,'Suma Haberes',...discountHeaders,'Total Rebajas','Sueldo Líquido']);
+    const get=(raw,name)=>raw[idxOf(idx,name)]??'';
+    for(const raw of aoa.slice(headerRow+1)){
+      const rut=cleanText(get(raw,'RUT'));
+      if(!rut) continue;
+      const area=cleanText(get(raw,'AREA'));
+      const areaName=area.split(',',1)[0].trim()||'Sin centro de costo';
+      const sede=overheadAreas.has(headerKey(areaName))?'Over head':areaName;
+      const fullName=['AP PATERNO','AP MATERNO','NOMBRES'].map(name=>cleanText(get(raw,name))).filter(Boolean).join(' ');
+      normalizedRows.push([
+        period,company,sede,area,fullName,rut,get(raw,'CÓDIGO'),get(raw,'CARGO'),get(raw,'DÍAS TRABAJADOS'),
+        ...headers.slice(earningStart,earningEnd).map((_,i)=>raw[earningStart+i]??''),
+        get(raw,'TOTAL HABERES'),
+        ...headers.slice(discountStart,discountEnd).map((_,i)=>raw[discountStart+i]??''),
+        get(raw,'TOTAL DESCUENTOS'),get(raw,'SUELDO LÍQUIDO'),
+      ]);
+      (rawRowsByMonth[period]=rawRowsByMonth[period]||[]).push(raw);
+    }
+  }
+  if(normalizedRows.length===0||normalizedRows.length===1) throw new Error('No encontré hojas válidas con registros de octubre de Grupo Avanza.');
+  const data=buildDataFromRows(normalizedRows,fileName,'Grupo Avanza');
+  data.metadata.avanza_headers=firstHeaders;
+  data.metadata.avanza_month_headers=headersByMonth;
+  Object.entries(data.details).forEach(([month,rows])=>rows.forEach((row,i)=>{row.raw=rawRowsByMonth[month]?.[i]||row.raw;}));
+  return data;
+}
 function buildDataFromRows(aoa,fileName,groupId=DATA.metadata?.locked_group||state.grupo||'CRUX FOOD'){
   const headerRow=aoa.findIndex(row=>row&&((headerKey(row[0])==='empresa'&&headerKey(row[3])==='proceso')||(headerKey(row[0])==='proceso'&&headerKey(row[1])==='nombre empresa')));
   const headers=aoa[headerRow>=0?headerRow:4]||[],idx=headerIndex(headers);
@@ -1560,7 +1629,8 @@ function handleFileUpload(e){
       const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array',cellDates:false});
       const ws=wb.Sheets.Detalle||wb.Sheets[wb.SheetNames[0]];
       const aoa=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:false});
-      reloadData(isAvanzaBook(aoa)?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name));
+      const data=isAvanzaMonthlyWorkbook(wb)?buildAvanzaMonthlyUploadData(wb,file.name):isAvanzaBook(aoa)?buildAvanzaUploadData(aoa,file.name):buildDataFromRows(aoa,file.name);
+      reloadData(data);
     }catch(err){console.error(err);alert(`No pude cargar el archivo: ${err.message}`);}
   };
   reader.readAsArrayBuffer(file);
