@@ -1907,7 +1907,7 @@ function renderDownloads(){
 }
 function summarizeDownloadRows(rows,groupKey){
   const map={};
-  rows.forEach(r=>{const areaParts=String(r.area||r.sede||'Sin área').split(',').map(part=>part.trim()).filter(Boolean),areaParent=norm(areaParts[0]),area=['comercial','hunting','it','outsourcing','over head'].includes(areaParent)?'Over head':areaParts.at(-1)||'Sin área',k=groupKey==='empresa_sede'?`${r.empresa||'Sin empresa'} · ${r.sede||'Sin sede'}`:groupKey==='empresa_area'?`${r.empresa||'Sin empresa'} · ${area}`:(r[groupKey]||'Sin dato');const x=map[k]||(map[k]={grupo:k,dotacion:0,fte:0,liquido:0,haberes:0});x.dotacion++;x.fte+=(+r.fte||(+r.dias||0)/30);x.liquido+=(+r.sueldo_liquido||0);x.haberes+=(+r.total_haberes||0);});
+  rows.forEach(r=>{const areaParts=String(r.area||r.sede||'Sin área').split(',').map(part=>part.trim()).filter(Boolean),areaParent=norm(areaParts[0]),area=['comercial','hunting','it','outsourcing','over head'].includes(areaParent)?'Over head':areaParts.at(-1)||'Sin área',k=groupKey==='empresa_sede'?`${r.empresa||'Sin empresa'} · ${r.sede||'Sin sede'}`:groupKey==='area'?area:(r[groupKey]||'Sin dato');const x=map[k]||(map[k]={grupo:k,dotacion:0,fte:0,liquido:0,haberes:0});x.dotacion++;x.fte+=(+r.fte||(+r.dias||0)/30);x.liquido+=(+r.sueldo_liquido||0);x.haberes+=(+r.total_haberes||0);});
   return map;
 }
 function summarySheetAoA(title,baseRows,compRows,groupKey,base,comp){
@@ -2020,7 +2020,7 @@ function downloadRevision(id){
   const baseRows=(DATA.details[base]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r)),compRows=(DATA.details[comp]||[]).filter(r=>reportBaseFilter(r)&&report.filter(r));
   const wb=XLSX.utils.book_new();
   appendSheet(wb,'Resumen por empresa',summarySheetAoA('Grupo',baseRows,compRows,'empresa',base,comp),'summary');
-  if(state.grupo==='Grupo Avanza') appendSheet(wb,'Comparación por área',summarySheetAoA('Empresa / Área',baseRows,compRows,'empresa_area',base,comp),'summary');
+  if(state.grupo==='Grupo Avanza') appendSheet(wb,'Comparación por área',summarySheetAoA('Área',baseRows,compRows,'area',base,comp),'summary');
   appendSheet(wb,'Resumen completo',summarySheetAoA(hierarchyUnit(),baseRows,compRows,'sede',base,comp),'summary');
   appendSheet(wb,'Detalle individual',detailSheetAoA(baseRows,compRows,base,comp),'detail');
   appendSheet(wb,sheetMonthName(base),monthRowsAoA(baseRows,base),'month');
