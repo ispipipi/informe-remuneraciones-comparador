@@ -446,7 +446,7 @@ def avanza_period_from_label(value: str) -> str:
     return f"{match.group(2)}-{months[match.group(1)]}" if match else ""
 
 
-def consolidate_avanza_accumulated(headers: list, rows) -> list[list]:
+def consolidate_avanza_accumulated(headers: list, rows, include_sources: bool = False) -> list:
     index = {header_key(h): i for i, h in enumerate(headers) if h}
     get = lambda row, key: row[index[key]] if index[key] < len(row) else None
     money = [
@@ -459,7 +459,7 @@ def consolidate_avanza_accumulated(headers: list, rows) -> list[list]:
     base = index["haberes imponibles - sueldo base"]
     imponible = index.get("liquidacion - total haberes imponibles", base)
     groups = {}
-    for raw in rows:
+    for order, raw in enumerate(rows):
         if not raw or not clean(get(raw, "empleado - numero de documento")):
             continue
         key = (
@@ -467,16 +467,18 @@ def consolidate_avanza_accumulated(headers: list, rows) -> list[list]:
             header_key(get(raw, "empresa - nombre empresa")),
             re.sub(r"[^0-9K]", "", clean(get(raw, "empleado - numero de documento")).upper()),
         )
-        groups.setdefault(key, []).append(list(raw))
+        groups.setdefault(key, []).append((order, list(raw)))
     result = []
-    for parts in groups.values():
+    for entries in groups.values():
+        parts = [raw for _, raw in entries]
         main = max(parts, key=lambda r: (num(r[base]), num(r[imponible]), num(r[days])))
         row = [main[i] if i < len(main) else "" for i in range(len(headers))]
         for i in money:
             row[i] = sum(num(r[i] if i < len(r) else 0) for r in parts)
         # Supplementary payments repeat the month's days; they are not another employment.
         row[days] = max(num(r[days]) for r in parts)
-        result.append(row)
+        originals = [{"order": order, "values": [json_value(v) for v in raw]} for order, raw in entries]
+        result.append((row, originals) if include_sources else row)
     return result
 
 
@@ -516,7 +518,7 @@ def avanza_details(accumulated_source: Path | None = None) -> tuple[dict[str, li
     headers_by_month: dict[str, list[str]] = {}
     if source.exists():
         headers_by_month.update({})
-        for raw in consolidate_avanza_accumulated(headers, ws.iter_rows(min_row=7, values_only=True)):
+        for raw, originals in consolidate_avanza_accumulated(headers, ws.iter_rows(min_row=7, values_only=True), include_sources=True):
             if not raw or not raw[0]:
                 continue
             period = period_id(raw[idx["Liquidación - Período"]])
@@ -554,7 +556,7 @@ def avanza_details(accumulated_source: Path | None = None) -> tuple[dict[str, li
                 "movilizacion": round(num(raw[idx["Haberes No Imponibles - Movilización"]])),
                 "colacion": round(num(raw[idx["Haberes No Imponibles - Colación"]])),
                 "licencia_dias": 0, "ausentismo_dias": 0, "bono_manip_pae": 0,
-                "raw": [json_value(v) for v in raw], "concepts": concepts,
+                "raw": [json_value(v) for v in raw], "source_raw_rows": originals, "concepts": concepts,
             }
             by_month[period].append(row)
             headers_by_month[period] = [json_value(h) for h in headers]
@@ -1993,7 +1995,11 @@ function monthRowsAoA(rows,month){
   const isNow=rows.some(r=>r.grupo==='Grupo NOW')&&!rows.some(r=>r.grupo==='CRUX FOOD'||r.grupo==='Grupo Avanza'||r.grupo==='Grupo AVESA');
   if(isAvanza){
     const headers=DATA.metadata.avanza_month_headers?.[month];
-    if(headers?.length&&rows.every(r=>Array.isArray(r.raw))) return [headers,...rows.map(r=>headers.map((_,i)=>r.raw[i]??''))];
+    if(headers?.length&&rows.every(r=>Array.isArray(r.raw))){
+      const originals=rows.flatMap(r=>r.source_raw_rows?.length?r.source_raw_rows:[{values:r.raw}]);
+      if(originals.every(r=>Number.isInteger(r.order))) originals.sort((a,b)=>a.order-b.order);
+      return [headers,...originals.map(r=>headers.map((_,i)=>r.values[i]??''))];
+    }
     return [avanzaMonthHeaders,...rows.map(avanzaMonthRow)];
   }
   const headers=isNow&&DATA.metadata.now_headers?.length?DATA.metadata.now_headers:isAvesa&&DATA.metadata.avesa_headers?.length?DATA.metadata.avesa_headers:(DATA.metadata.crux_month_headers?.[month]?.length?DATA.metadata.crux_month_headers[month]:(DATA.metadata.raw_headers?.length?DATA.metadata.raw_headers:['Empresa','Nombre empresa','Rut empresa','Proceso','Nombre','Rut','Contrato','Sede','Días Trabajados','Cargo']));
@@ -2317,15 +2323,16 @@ function consolidateAvanzaAccumulated(headers,rows){
     /^(haberes |descuentos |aportes patronales |informativos - costo |liquidacion - total )/.test(key)||key==='liquidacion - sueldo liquido'
   ).map(({i})=>i);
   const groups=new Map(),days=idxOf(idx,'Liquidación - Días Trabajados');
-  rows.forEach(raw=>{
+  rows.forEach((raw,order)=>{
     const rut=cleanText(value(raw,'Empleado - Número de Documento')).replace(/[^0-9k]/gi,'').toUpperCase();
     if(!rut)return;
     const key=JSON.stringify([normalizeAvanzaPeriod(value(raw,'Liquidación - Período')),headerKey(value(raw,'Empresa - Nombre Empresa')),rut]);
     if(!groups.has(key))groups.set(key,[]);
-    groups.get(key).push(raw);
+    groups.get(key).push({order,values:raw});
   });
   const score=r=>[numVal(r,idx,'Haberes Imponibles - Sueldo Base'),numVal(r,idx,'Liquidación - Total Haberes Imponibles'),numVal(r,idx,'Liquidación - Días Trabajados')];
-  return [...groups.values()].map(parts=>{
+  return [...groups.values()].map(originals=>{
+    const parts=originals.map(r=>r.values);
     const main=parts.reduce((best,r)=>{
       const a=score(r),b=score(best);
       const first=a.findIndex((v,i)=>v!==b[i]);
@@ -2334,6 +2341,7 @@ function consolidateAvanzaAccumulated(headers,rows){
     const merged=headers.map((_,i)=>main[i]??'');
     money.forEach(i=>{merged[i]=parts.reduce((sum,r)=>sum+parseNumber(r[i]),0);});
     merged[days]=Math.max(...parts.map(r=>parseNumber(r[days])));
+    merged.sourceRows=originals;
     return merged;
   });
 }
@@ -2389,13 +2397,17 @@ function buildAvanzaUploadData(aoa,fileName){
       value(raw,'Liquidación - Sueldo Líquido'),
     ]);
     const period=normalizeAvanzaPeriod(value(raw,'Liquidación - Período'));
-    (rawRowsByMonth[period]=rawRowsByMonth[period]||[]).push(headers.map((_,i)=>raw[i]??''));
+    (rawRowsByMonth[period]=rawRowsByMonth[period]||[]).push({raw:headers.map((_,i)=>raw[i]??''),source:raw.sourceRows});
   });
   if(output.length===1) throw new Error('No encontré registros de Grupo Avanza en este libro.');
   const data=buildDataFromRows(output,fileName,'Grupo Avanza');
   data.metadata.avanza_headers=headers;
   data.metadata.avanza_month_headers=Object.fromEntries(Object.keys(rawRowsByMonth).map(month=>[month,headers]));
-  Object.entries(data.details).forEach(([month,rows])=>rows.forEach((row,i)=>{row.raw=rawRowsByMonth[month]?.[i]||row.raw;}));
+  Object.entries(data.details).forEach(([month,rows])=>rows.forEach((row,i)=>{
+    const entry=rawRowsByMonth[month]?.[i];
+    row.raw=entry?.raw||row.raw;
+    row.source_raw_rows=entry?.source;
+  }));
   return data;
 }
 function avanzaUploadPeriodFromLabel(value){

@@ -53,6 +53,7 @@ vm.runInContext(`
       assert.equal(JSON.stringify(row.raw.slice(0,25)),JSON.stringify(other.raw.slice(0,25)));
       assert.equal(normalizeAvanzaPeriod(row.raw[25]),normalizeAvanzaPeriod(other.raw[25]));
       assert.equal(row.raw[26],other.raw[26]);
+      assert.equal(row.source_raw_rows.length,other.source_raw_rows.length);
     }
     assert.equal(rows.reduce((s,r)=>s+r.total_haberes,0),fixture.totals[month].haberes);
     assert.equal(rows.reduce((s,r)=>s+r.sueldo_liquido,0),fixture.totals[month].liquido);
@@ -82,9 +83,17 @@ vm.runInContext(`
       const expected=data.details[month].filter(r=>report==='avanza_general'||isOutsourcingDownloadRow(r));
       const monthRows=sheets[name].aoa;
       assert.equal(monthRows[0].length,fixture.aoa[5].length);
-      assert.equal(monthRows.length,expected.length+1);
-      const keys=monthRows.slice(1).map(r=>JSON.stringify([r[26],rutKey(r[0])]));
-      assert.equal(new Set(keys).size,expected.length);
+      const accepted=new Set(expected.map(id));
+      const sourceRows=fixture.aoa.slice(6).filter(r=>
+        normalizeAvanzaPeriod(r[25])===month&&accepted.has(JSON.stringify([r[26],rutKey(r[0])]))
+      );
+      assert.equal(monthRows.length,sourceRows.length+1);
+      sourceRows.forEach((source,i)=>{
+        assert.equal(JSON.stringify(monthRows[i+1]),JSON.stringify(source),'Monthly source row '+i);
+      });
+      const sousaMonthly=monthRows.slice(1).filter(r=>rutKey(r[0])==='269726253');
+      assert.equal(sousaMonthly.length,2);
+      assert.equal(sousaMonthly.reduce((s,r)=>s+parseNumber(r[12]),0),month==='2026-10'?2579115:2779115);
       const header=headerIndex(monthRows[0]);
       for(const metric of ['Liquidación - Total Haberes','Liquidación - Sueldo Líquido']){
         const col=idxOf(header,metric),total=monthRows.slice(1).reduce((s,r)=>s+parseNumber(r[col]),0);
@@ -108,6 +117,6 @@ vm.runInContext(`
   assert.equal(merged.length,1);
   assert.equal(merged[0][3],30);
   assert.equal(merged[0][12],parseNumber(principal[12])+123);
-  console.log('Passed: consolidation, Python/JS parity, totals, days, both exports, unique people, cross-company identity.');
+  console.log('Passed: full monthly source rows and order, consolidated summaries, totals, days, both exports, cross-company identity.');
 `,context);
 if(process.env.AVANZA_EXPORT_JSON)process.stdout.write(JSON.stringify(exported));
