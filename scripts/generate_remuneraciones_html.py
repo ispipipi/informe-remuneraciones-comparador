@@ -19,6 +19,7 @@ CRUX_MONTH_SOURCES: list[Path] = []
 CRUX_HHEE_CORRECTION_SOURCE: Path | None = None
 AVANZA_SOURCE = Path(os.environ.get("AVANZA_SOURCE", BASE_DIR / "data" / "avanza_libro_remuneraciones.xlsx"))
 AVANZA_MONTH_SOURCES = sorted((BASE_DIR / "data").glob("avanza_mensual_*.xlsx"))
+AVANZA_ACCUMULATED_SOURCES = sorted((BASE_DIR / "data").glob("avanza_acumulado_*.xlsx"))
 AVESA_SOURCE = Path(os.environ.get("AVESA_SOURCE", BASE_DIR / "data" / "avesa_detalle_remuneraciones.xlsx"))
 NOW_SOURCE = Path(os.environ.get("NOW_SOURCE", BASE_DIR / "data" / "now_detalle_remuneraciones.xlsx"))
 OUTPUT = Path(os.environ.get("REMUN_OUTPUT", BASE_DIR / "index.html"))
@@ -445,14 +446,50 @@ def avanza_period_from_label(value: str) -> str:
     return f"{match.group(2)}-{months[match.group(1)]}" if match else ""
 
 
-def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], dict[str, list[str]]]:
-    if not AVANZA_SOURCE.exists():
+def consolidate_avanza_accumulated(headers: list, rows) -> list[list]:
+    index = {header_key(h): i for i, h in enumerate(headers) if h}
+    get = lambda row, key: row[index[key]] if index[key] < len(row) else None
+    money = [
+        i for i, h in enumerate(headers)
+        if header_key(h).startswith(("haberes ", "descuentos ", "aportes patronales ", "informativos - costo "))
+        or header_key(h).startswith("liquidacion - total ")
+        or header_key(h) == "liquidacion - sueldo liquido"
+    ]
+    days = index["liquidacion - dias trabajados"]
+    base = index["haberes imponibles - sueldo base"]
+    imponible = index.get("liquidacion - total haberes imponibles", base)
+    groups = {}
+    for raw in rows:
+        if not raw or not clean(get(raw, "empleado - numero de documento")):
+            continue
+        key = (
+            period_id(get(raw, "liquidacion - periodo")),
+            header_key(get(raw, "empresa - nombre empresa")),
+            re.sub(r"[^0-9K]", "", clean(get(raw, "empleado - numero de documento")).upper()),
+        )
+        groups.setdefault(key, []).append(list(raw))
+    result = []
+    for parts in groups.values():
+        main = max(parts, key=lambda r: (num(r[base]), num(r[imponible]), num(r[days])))
+        row = [main[i] if i < len(main) else "" for i in range(len(headers))]
+        for i in money:
+            row[i] = sum(num(r[i] if i < len(r) else 0) for r in parts)
+        # Supplementary payments repeat the month's days; they are not another employment.
+        row[days] = max(num(r[days]) for r in parts)
+        result.append(row)
+    return result
+
+
+
+def avanza_details(accumulated_source: Path | None = None) -> tuple[dict[str, list[dict]], dict[str, str], list[str], dict[str, list[str]]]:
+    source = accumulated_source or AVANZA_SOURCE
+    if not source.exists():
         by_month: dict[str, list[dict]] = defaultdict(list)
         concept_types: dict[str, str] = {}
         headers: list[str] = []
         headers_by_month: dict[str, list[str]] = {}
     else:
-        wb = load_workbook(AVANZA_SOURCE, read_only=True, data_only=True)
+        wb = load_workbook(source, read_only=True, data_only=True)
         ws = wb["Libro de remu CE"]
         headers = list(next(ws.iter_rows(min_row=6, max_row=6, values_only=True)))
         idx = {h: i for i, h in enumerate(headers) if h}
@@ -469,7 +506,7 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], 
         "Descuentos Legales - Seguro Cesantía": ("Seguro Cesantía", "descuento"),
         "Descuentos Legales - Impuesto Único": ("Impuesto Único", "descuento"),
     }
-    concept_types = {label: typ for _, (label, typ) in concept_map.items()} if AVANZA_SOURCE.exists() else {}
+    concept_types = {label: typ for _, (label, typ) in concept_map.items()} if source.exists() else {}
     allowed_companies = {
         "Grupo Avanza SPA",
         "EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA",
@@ -477,9 +514,9 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], 
     overhead_areas = {"Comercial", "Hunting", "IT", "Outsourcing"}
     by_month: dict[str, list[dict]] = defaultdict(list)
     headers_by_month: dict[str, list[str]] = {}
-    if AVANZA_SOURCE.exists():
+    if source.exists():
         headers_by_month.update({})
-        for raw in ws.iter_rows(min_row=7, values_only=True):
+        for raw in consolidate_avanza_accumulated(headers, ws.iter_rows(min_row=7, values_only=True)):
             if not raw or not raw[0]:
                 continue
             period = period_id(raw[idx["Liquidación - Período"]])
@@ -487,7 +524,9 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], 
             if empresa not in allowed_companies:
                 continue
             raw_sede = clean(raw[idx["Trabajo - Nombre Sub-área Asignada(o)"]]) or "Sin sede"
-            sede = "Over head" if raw_sede in overhead_areas else raw_sede
+            category = "GA EST" if empresa == "EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA" else "Over Head" if header_key(raw_sede) in {header_key(x) for x in overhead_areas} else "OUTSOURCING"
+            sede = category
+            area = f"{category}, {raw_sede}, {raw_sede}"
             concepts = {}
             for source_name, (label, _) in concept_map.items():
                 value = num(raw[idx[source_name]] if idx[source_name] < len(raw) else 0)
@@ -503,7 +542,7 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], 
             row = {
                 "grupo": "Grupo Avanza", "rut": clean(raw[idx["Empleado - Número de Documento"]]),
                 "nombre": clean(raw[idx["Empleado - Nombre Completo"]]), "cargo": "", "contrato": "",
-                "empresa": empresa, "rut_empresa": "", "sede": sede, "area": raw_sede,
+                "empresa": empresa, "rut_empresa": "", "sede": sede, "area": area,
                 "dias": num(raw[idx["Liquidación - Días Trabajados"]]),
                 "fte": round(num(raw[idx["Liquidación - Días Trabajados"]]) / 30, 2),
                 "sueldo_base": round(num(raw[idx["Haberes Imponibles - Sueldo Base"]])),
@@ -523,8 +562,8 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], 
     monthly_months = {}
     monthly_seen_sheets = defaultdict(list)
     monthly_concept_types = {}
-    for source in AVANZA_MONTH_SOURCES:
-        monthly_wb = load_workbook(source, read_only=True, data_only=True)
+    for monthly_source in ([] if accumulated_source else AVANZA_MONTH_SOURCES):
+        monthly_wb = load_workbook(monthly_source, read_only=True, data_only=True)
         for monthly_ws in monthly_wb.worksheets:
             top = clean(monthly_ws.cell(2, 1).value)
             period = avanza_period_from_label(clean(monthly_ws.cell(3, 1).value))
@@ -595,8 +634,14 @@ def avanza_details() -> tuple[dict[str, list[dict]], dict[str, str], list[str], 
         monthly_wb.close()
     headers_by_month.update(monthly_months)
     concept_types.update(monthly_concept_types)
-    if AVANZA_SOURCE.exists():
+    if source.exists():
         wb.close()
+    if not accumulated_source:
+        for newer_source in AVANZA_ACCUMULATED_SOURCES:
+            newer_rows, newer_types, _, newer_headers = avanza_details(newer_source)
+            by_month.update(newer_rows)
+            concept_types.update(newer_types)
+            headers_by_month.update(newer_headers)
     return by_month, concept_types, [json_value(h) for h in headers], headers_by_month
 
 
@@ -739,7 +784,7 @@ def build_multi_data() -> dict:
         gid = group["id"]
         months_by_group[gid] = [{"id": m, "label": month_label(m)} for m in months if any(r.get("grupo") == gid for r in details_by_month[m])]
 
-    source_names = [SOURCE.name, *(path.name for path in CRUX_MONTH_SOURCES)]
+    source_names = [SOURCE.name, *(path.name for path in CRUX_MONTH_SOURCES), *(path.name for path in AVANZA_ACCUMULATED_SOURCES)]
     if CRUX_HHEE_CORRECTION_SOURCE and CRUX_HHEE_CORRECTION_SOURCE.exists():
         source_names.append(CRUX_HHEE_CORRECTION_SOURCE.name)
     data = {
@@ -1919,7 +1964,8 @@ function summarySheetAoA(title,baseRows,compRows,groupKey,base,comp){
   return rows;
 }
 function detailSheetAoA(baseRows,compRows,base,comp){
-  const bm=Object.fromEntries(baseRows.map(r=>[r.rut,r])),cm=Object.fromEntries(compRows.map(r=>[r.rut,r])),keys=[...new Set([...Object.keys(bm),...Object.keys(cm)])].sort((a,b)=>String((cm[a]||bm[a]).empresa).localeCompare(String((cm[b]||bm[b]).empresa))||String((cm[a]||bm[a]).sede).localeCompare(String((cm[b]||bm[b]).sede))||String((cm[a]||bm[a]).nombre).localeCompare(String((cm[b]||bm[b]).nombre)));
+  const identity=r=>r.grupo==='Grupo Avanza'?JSON.stringify([headerKey(r.empresa),String(r.rut).replace(/[^0-9k]/gi,'').toUpperCase()]):r.rut;
+  const bm=Object.fromEntries(baseRows.map(r=>[identity(r),r])),cm=Object.fromEntries(compRows.map(r=>[identity(r),r])),keys=[...new Set([...Object.keys(bm),...Object.keys(cm)])].sort((a,b)=>String((cm[a]||bm[a]).empresa).localeCompare(String((cm[b]||bm[b]).empresa))||String((cm[a]||bm[a]).sede).localeCompare(String((cm[b]||bm[b]).sede))||String((cm[a]||bm[a]).nombre).localeCompare(String((cm[b]||bm[b]).nombre)));
   const rows=[['N°','Empresa','Nombre','Rut',hierarchyUnit(),'Cargo','Días Trab.',null,null,'Sueldo Líquido',null,null,'Total Haberes',null,null,'Sueldo Base',null,null],['','','','','','',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia',label(base),label(comp),'Diferencia']];
   keys.forEach((rut,i)=>{const b=bm[rut]||{},c=cm[rut]||{},r=c.rut?c:b;rows.push([i+1,r.empresa,r.nombre,r.rut,r.sede,r.cargo,b.dias||0,c.dias||0,(c.dias||0)-(b.dias||0),b.sueldo_liquido||0,c.sueldo_liquido||0,(c.sueldo_liquido||0)-(b.sueldo_liquido||0),b.total_haberes||0,c.total_haberes||0,(c.total_haberes||0)-(b.total_haberes||0),b.sueldo_base||0,c.sueldo_base||0,(c.sueldo_base||0)-(b.sueldo_base||0)]);});
   return rows;
@@ -1985,6 +2031,7 @@ function styleSheet(ws,aoa,kind){
         cell.s={...cell.s,...(cell.v<0?xlStyles.diffNeg:cell.v>0?xlStyles.diffPos:{})};
         cell.z='#,##0;[Red](#,##0);-';
       }
+      if(kind==='summary'&&r>=2&&[5,6,7].includes(c)&&typeof cell.v==='number') cell.z='#,##0.00;[Red](#,##0.00);-';
     }
   }
   ws['!autofilter']={ref:kind==='summary'?`A2:${XLSX.utils.encode_col(cols-1)}${rows}`:`A1:${XLSX.utils.encode_col(cols-1)}${rows}`};
@@ -2264,6 +2311,32 @@ function isAvanzaBook(aoa){
   return aoa.some(row=>row?.some(value=>headerKey(value)==='empleado - numero de documento')) &&
     aoa.some(row=>row?.some(value=>headerKey(value)==='liquidacion - periodo'));
 }
+function consolidateAvanzaAccumulated(headers,rows){
+  const idx=headerIndex(headers),value=(r,name)=>rawVal(r,idx,name);
+  const money=headers.map((h,i)=>({key:headerKey(h),i})).filter(({key})=>
+    /^(haberes |descuentos |aportes patronales |informativos - costo |liquidacion - total )/.test(key)||key==='liquidacion - sueldo liquido'
+  ).map(({i})=>i);
+  const groups=new Map(),days=idxOf(idx,'Liquidación - Días Trabajados');
+  rows.forEach(raw=>{
+    const rut=cleanText(value(raw,'Empleado - Número de Documento')).replace(/[^0-9k]/gi,'').toUpperCase();
+    if(!rut)return;
+    const key=JSON.stringify([normalizeAvanzaPeriod(value(raw,'Liquidación - Período')),headerKey(value(raw,'Empresa - Nombre Empresa')),rut]);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push(raw);
+  });
+  const score=r=>[numVal(r,idx,'Haberes Imponibles - Sueldo Base'),numVal(r,idx,'Liquidación - Total Haberes Imponibles'),numVal(r,idx,'Liquidación - Días Trabajados')];
+  return [...groups.values()].map(parts=>{
+    const main=parts.reduce((best,r)=>{
+      const a=score(r),b=score(best);
+      const first=a.findIndex((v,i)=>v!==b[i]);
+      return first>=0&&a[first]>b[first]?r:best;
+    });
+    const merged=headers.map((_,i)=>main[i]??'');
+    money.forEach(i=>{merged[i]=parts.reduce((sum,r)=>sum+parseNumber(r[i]),0);});
+    merged[days]=Math.max(...parts.map(r=>parseNumber(r[days])));
+    return merged;
+  });
+}
 function buildAvanzaUploadData(aoa,fileName){
   const headerRow=aoa.findIndex(row=>row?.some(value=>headerKey(value)==='empleado - numero de documento'));
   const headers=aoa[headerRow]||[],idx=headerIndex(headers);
@@ -2275,23 +2348,16 @@ function buildAvanzaUploadData(aoa,fileName){
   const output=[outputHeaders];
   const allowedCompanies=new Set(['Grupo Avanza SPA','EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA'].map(headerKey));
   const overheadAreas=new Set(['Comercial','Hunting','IT','Outsourcing'].map(headerKey));
-  const areaByCompanySede=new Map();
-  Object.values(DATA.details||{}).flat().forEach(row=>{
-    if(!allowedCompanies.has(headerKey(row.empresa))) return;
-    const area=cleanText(row.area),costCenter=area.split(',').map(part=>part.trim()).at(-1)||row.sede,key=`${headerKey(row.empresa)}|${headerKey(costCenter)}`,areaKey=headerKey(area);
-    if(area&&(/^(outsourcing|ga est|over head)/.test(areaKey)||overheadAreas.has(areaKey))&&!areaByCompanySede.has(key)) areaByCompanySede.set(key,area);
-  });
   const rawRowsByMonth={};
-  aoa.slice(headerRow+1).forEach(raw=>{
+  consolidateAvanzaAccumulated(headers,aoa.slice(headerRow+1)).forEach(raw=>{
     const rut=cleanText(value(raw,'Empleado - Número de Documento'));
     if(!rut) return;
     const empresa=cleanText(value(raw,'Empresa - Nombre Empresa'))||'Grupo Avanza SPA';
     if(!allowedCompanies.has(headerKey(empresa))) return;
     const rawSede=cleanText(value(raw,'Trabajo - Nombre Sub-área Asignada(o)'));
-    const mapKey=`${headerKey(empresa)}|${headerKey(rawSede)}`;
-    const area=areaByCompanySede.get(mapKey)||(overheadAreas.has(headerKey(rawSede))?'Over Head':headerKey(empresa)===headerKey('EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA')?'GA EST':'OUTSOURCING')+`, ${rawSede||'Sin centro de costo'}, ${rawSede||'Sin centro de costo'}`;
-    const areaCategory=cleanText(area.split(',')[0]);
-    const sede=overheadAreas.has(headerKey(areaCategory))||headerKey(areaCategory)==='over head'?'Over Head':(areaCategory||rawSede||'Sin sede');
+    const category=headerKey(empresa)===headerKey('EMPRESA DE SERVICIOS TRANSITORIOS G.A. SPA')?'GA EST':overheadAreas.has(headerKey(rawSede))?'Over Head':'OUTSOURCING';
+    const area=`${category}, ${rawSede||'Sin centro de costo'}, ${rawSede||'Sin centro de costo'}`;
+    const sede=category;
     const cotizacionPrevisional=numVal(raw,idx,'Descuentos Legales - Cotiz. Previ. Obligatoria');
     const cotizacionSalud=numVal(raw,idx,'Descuentos Legales - Cotiz. Salud Obligatoria');
     const adicionalSalud=numVal(raw,idx,'Descuentos Legales - Adicional Salud');

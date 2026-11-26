@@ -7,6 +7,7 @@ on:
     paths:
       - data/detalle_remuneraciones.xlsx
       - data/now_detalle_remuneraciones.xlsx
+      - data/avanza_acumulado_*.xlsx
       - scripts/generate_remuneraciones_html.py
       - .github/workflows/update-report.yml
   workflow_dispatch:
